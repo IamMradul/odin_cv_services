@@ -1,0 +1,21 @@
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Model weights - too large for git, teammates download their own
+*.pt
+*.onnx
+
+# Test artifacts
+test/videos/
+test/outputs/
+test/models/
+*.mp4
+*.avi
+*.webm
+
+# OS/editor junk
+.vscode/
+.DS_Store
+Thumbs.db
