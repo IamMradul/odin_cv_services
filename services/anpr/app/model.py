@@ -6,11 +6,10 @@ import numpy as np
 class ANPRDetector:
     def __init__(self, plate_weights: str = "license_plate_detector.pt"):
         self.plate_model = YOLO(plate_weights)
-        # gpu=False is safest default; flip to True if you have CUDA set up
-        self.reader = easyocr.Reader(['en'], gpu=False)
+        self.reader = easyocr.Reader(['en'], gpu=True)
 
     def infer(self, frame: np.ndarray):
-        results = self.plate_model(frame, verbose=False)[0]
+        results = self.plate_model(frame, device="cuda", verbose=False)[0]
         detections = []
 
         if results.boxes is not None:
@@ -38,6 +37,6 @@ class ANPRDetector:
         results = self.reader.readtext(gray)
         if not results:
             return None, 0.0
-        best = max(results, key=lambda r: r[2])  # highest OCR confidence
+        best = max(results, key=lambda r: r[2])
         text = best[1].upper().replace(" ", "")
         return text, float(best[2])

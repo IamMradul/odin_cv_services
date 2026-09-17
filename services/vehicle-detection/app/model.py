@@ -2,7 +2,6 @@ from ultralytics import YOLO
 import numpy as np
 
 class VehicleDetector:
-    # COCO class ids: 2=car, 3=motorcycle, 5=bus, 7=truck
     VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
     def __init__(self, weights: str = "yolov8n.pt"):
@@ -13,6 +12,7 @@ class VehicleDetector:
             frame,
             persist=True,
             classes=list(self.VEHICLE_CLASSES.keys()),
+            device="cuda",
             verbose=False,
         )[0]
 

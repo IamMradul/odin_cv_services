@@ -1,31 +1,37 @@
-# gateway/main.py
+import asyncio
 import httpx
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, UploadFile, File
 
 app = FastAPI(title="gateway")
 
 SERVICES = {
-    "human": "http://human-detection:8001/detect",
-    "vehicle": "http://vehicle-detection:8002/detect",
-    "face": "http://face-detection:8003/detect",
-    "anpr": "http://anpr:8004/detect",
+    "human": "http://localhost:8001/detect",
+    "vehicle": "http://localhost:8002/detect",
+    "anpr": "http://localhost:8004/detect",
+    # "face": "http://localhost:8003/detect",  # add once Mradul's service exists
 }
+
+http_client: httpx.AsyncClient | None = None
+
+@app.on_event("startup")
+async def startup():
+    global http_client
+    http_client = httpx.AsyncClient(timeout=5.0)
+
+@app.on_event("shutdown")
+async def shutdown():
+    await http_client.aclose()
+
+async def call_service(name: str, url: str, contents: bytes):
+    try:
+        resp = await http_client.post(url, files={"frame": ("frame.jpg", contents, "image/jpeg")})
+        return name, resp.json()
+    except Exception as e:
+        return name, {"ok": False, "error": f"{type(e).__name__}: {e}"}
 
 @app.post("/process-frame")
 async def process_frame(frame: UploadFile = File(...)):
     contents = await frame.read()
-    results = {}
-
-    async with httpx.AsyncClient(timeout=2.0) as client:
-        for name, url in SERVICES.items():
-            try:
-                resp = await client.post(
-                    url,
-                    files={"frame": ("frame.jpg", contents, "image/jpeg")},
-                )
-                results[name] = resp.json()
-            except Exception as e:
-                # this service is down/slow — don't fail the whole request
-                results[name] = {"ok": False, "error": f"unreachable: {e}"}
-
-    return results
+    tasks = [call_service(name, url, contents) for name, url in SERVICES.items()]
+    results = await asyncio.gather(*tasks)
+    return dict(results)

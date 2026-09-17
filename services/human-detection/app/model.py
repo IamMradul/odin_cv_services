@@ -4,7 +4,6 @@ import numpy as np
 class HumanDetector:
     def __init__(self, weights: str = "yolov8n.pt"):
         self.model = YOLO(weights)
-        # ByteTrack is bundled with ultralytics, enabled via .track()
         self.person_class_id = 0  # COCO class 0 = person
 
     def infer(self, frame: np.ndarray):
@@ -12,6 +11,7 @@ class HumanDetector:
             frame,
             persist=True,
             classes=[self.person_class_id],
+            device="cuda",
             verbose=False,
         )[0]
 
