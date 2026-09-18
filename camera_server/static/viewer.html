@@ -46,11 +46,17 @@ function drawFrame() {
   for (const [service, result] of Object.entries(latestDetections)) {
     if (!result || !result.ok || !result.detections) continue;
     const color = COLORS[service] || "#ffffff";
-    ctx.strokeStyle = color;
-    ctx.fillStyle = color;
     ctx.lineWidth = service === 'suspicious' ? 4 : 2;
     ctx.font = "14px sans-serif";
     for (const d of result.detections) {
+      let boxColor = color;
+      if (service === 'face') {
+        if (d.status === 'criminal') boxColor = '#ff0000';
+        else if (d.status === 'safe') boxColor = '#00ff00';
+      }
+      ctx.strokeStyle = boxColor;
+      ctx.fillStyle = boxColor;
+
       const [x1, y1, x2, y2] = d.box;
       ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
       
