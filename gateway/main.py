@@ -9,7 +9,7 @@ SERVICES = {
     "vehicle": "http://localhost:8002/detect",
     "anpr": "http://localhost:8004/detect",
     "suspicious": "http://localhost:8005/detect",
-    # "face": "http://localhost:8003/detect",  # add once Mradul's service exists
+    "face": "http://localhost:8003/detect",
 }
 
 http_client: httpx.AsyncClient | None = None
