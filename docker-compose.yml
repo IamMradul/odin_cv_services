@@ -24,3 +24,7 @@ services:
   suspicious-activity:
     build: ./services/suspicious-activity
     ports: ["8005:8005"]
+
+  alert-logging:
+    build: ./services/alert-logging
+    ports: ["8006:8006"]
