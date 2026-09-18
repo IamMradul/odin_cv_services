@@ -6,7 +6,7 @@ from ultralytics import YOLO
 from . import config
 
 class PersonTracker:
-    def __init__(self, weights_path: str = "yolov8n.pt"):
+    def __init__(self, weights_path: str = "yolov8n-pose.pt"):
         self.model = YOLO(weights_path)
         self.person_class_id = 0
         
@@ -42,13 +42,23 @@ class PersonTracker:
         tracked_persons = []
         
         if results.boxes is not None:
-            for box in results.boxes:
+            # For pose models, results.keypoints contains the pose data
+            keypoints = None
+            if hasattr(results, 'keypoints') and results.keypoints is not None:
+                keypoints = results.keypoints.data.cpu().numpy() # Shape: (N, 17, 3) where N is number of boxes
+                
+            for i, box in enumerate(results.boxes):
                 conf = float(box.conf[0])
                 if conf < config.PERSON_CONFIDENCE:
                     continue
                     
                 xyxy = [int(v) for v in box.xyxy[0].tolist()]
                 track_id = int(box.id[0]) if box.id is not None else None
+                
+                # Extract keypoints for this person if available
+                person_keypoints = None
+                if keypoints is not None and i < len(keypoints):
+                    person_keypoints = keypoints[i] # 17x3 array (x, y, conf)
                 
                 if track_id is not None:
                     # Calculate centroid
@@ -64,7 +74,8 @@ class PersonTracker:
                     "track_id": track_id,
                     "box": xyxy,
                     "confidence": conf,
-                    "history": list(self.track_history.get(track_id, []))
+                    "history": list(self.track_history.get(track_id, [])),
+                    "keypoints": person_keypoints
                 })
                 
         return tracked_persons
