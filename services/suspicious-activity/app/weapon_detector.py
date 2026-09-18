@@ -3,7 +3,7 @@ from ultralytics import YOLO
 from . import config
 
 class WeaponDetector:
-    def __init__(self, weights_path: str = "yolov8n.pt"): # Defaulting to standard model if weapon model not provided, ideally change to 'weapon_detector.pt' when available
+    def __init__(self, weights_path: str = "Weapon_model.pt"): # Defaulting to standard model if weapon model not provided, ideally change to 'weapon_detector.pt' when available
         # Note: For demo, if a dedicated weapon model isn't available, we might just load YOLOv8n
         # but in production this must point to a weapon-finetuned model.
         try:
@@ -47,4 +47,4 @@ class WeaponDetector:
                 
         return detections
 
-import torch # added torch import just in case
+import torch 

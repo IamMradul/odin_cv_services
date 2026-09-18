@@ -21,7 +21,58 @@ def compute_iou(boxA, boxB):
 
 class BehaviorAnalyzer:
     def __init__(self):
-        pass
+        # COCO keypoint indices
+        self.K_L_SHOULDER = 5
+        self.K_R_SHOULDER = 6
+        self.K_L_ELBOW = 7
+        self.K_R_ELBOW = 8
+        self.K_L_WRIST = 9
+        self.K_R_WRIST = 10
+        self.K_L_HIP = 11
+        self.K_R_HIP = 12
+
+    def _get_angle(self, p1, p2):
+        # Calculate angle between two points relative to horizontal
+        dy = p2[1] - p1[1]
+        dx = p2[0] - p1[0]
+        angle = math.degrees(math.atan2(dy, dx))
+        return angle
+
+    def _is_aiming(self, keypoints):
+        if keypoints is None or len(keypoints) < 17:
+            return False
+            
+        # Check both arms. An arm is aiming if it's extended relatively horizontally.
+        for shoulder_idx, wrist_idx in [(self.K_L_SHOULDER, self.K_L_WRIST), (self.K_R_SHOULDER, self.K_R_WRIST)]:
+            shoulder = keypoints[shoulder_idx]
+            wrist = keypoints[wrist_idx]
+            
+            # Check confidence of keypoints (index 2 is confidence)
+            if shoulder[2] > 0.5 and wrist[2] > 0.5:
+                angle = self._get_angle(shoulder, wrist)
+                # If the angle is close to 0 (right) or 180/-180 (left), the arm is horizontal
+                if abs(angle) < config.AIMING_ARM_ANGLE_TOLERANCE or abs(abs(angle) - 180) < config.AIMING_ARM_ANGLE_TOLERANCE:
+                    return True
+        return False
+
+    def _is_stabbing(self, keypoints, box):
+        if keypoints is None or len(keypoints) < 17:
+            return False
+            
+        # A stab is typically an overhead strike, so wrist is significantly higher than shoulder.
+        # Use body height as a reference to make it scale-invariant.
+        box_height = box[3] - box[1]
+        
+        for shoulder_idx, wrist_idx in [(self.K_L_SHOULDER, self.K_L_WRIST), (self.K_R_SHOULDER, self.K_R_WRIST)]:
+            shoulder = keypoints[shoulder_idx]
+            wrist = keypoints[wrist_idx]
+            
+            if shoulder[2] > 0.5 and wrist[2] > 0.5:
+                # y-axis increases downwards in image coordinates
+                dy = shoulder[1] - wrist[1] # positive if wrist is above shoulder
+                if dy > box_height * config.STABBING_WRIST_HEIGHT_RATIO:
+                    return True
+        return False
 
     def check_armed_person(self, tracked_persons, weapons):
         alerts = []
@@ -33,14 +84,29 @@ class BehaviorAnalyzer:
                 
                 # If they overlap, or if weapon is very close to person
                 if iou > config.WEAPON_PERSON_IOU_THRESHOLD:
+                    alert_type = "ARMED_PERSON"
+                    severity = "CRITICAL"
+                    details = f"Person #{person['track_id']} holding {weapon['label']}"
+                    
+                    # Escalate alert based on pose if keypoints are available
+                    keypoints = person.get("keypoints")
+                    if weapon["label"] in ["gun", "weapon"]:
+                        if self._is_aiming(keypoints):
+                            alert_type = "AIMING_WEAPON"
+                            details = f"Person #{person['track_id']} is AIMING a {weapon['label']}!"
+                    elif weapon["label"] in ["knife", "sharp_object"]:
+                        if self._is_stabbing(keypoints, person_box):
+                            alert_type = "STABBING_ATTEMPT"
+                            details = f"Person #{person['track_id']} is making a STABBING motion!"
+                            
                     alerts.append({
-                        "alert_type": "ARMED_PERSON",
-                        "severity": "CRITICAL",
+                        "alert_type": alert_type,
+                        "severity": severity,
                         "confidence": weapon["confidence"],
                         "box": person_box,
                         "track_id": person["track_id"],
                         "weapon_class": weapon["label"],
-                        "details": f"Person #{person['track_id']} holding {weapon['label']}"
+                        "details": details
                     })
         return alerts
 

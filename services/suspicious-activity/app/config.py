@@ -2,12 +2,12 @@
 
 # Loitering
 LOITER_RADIUS_PX = 50          # Max centroid drift to still count as "stationary"
-LOITER_THRESHOLD_SEC = 30      # Seconds before triggering loitering alert
+LOITER_THRESHOLD_SEC = 15      # Seconds before triggering loitering alert
 LOITER_WINDOW_SEC = 60         # History window to analyze
 
 # Lurking / Pacing
 LURK_REVERSAL_THRESHOLD = 4    # Direction reversals in window
-LURK_WINDOW_SEC = 20           # Time window for counting reversals
+LURK_WINDOW_SEC = 10           # Time window for counting reversals
 LURK_AREA_RADIUS_PX = 100      # Must stay within this area to count as lurking
 
 # Running / Aggressive
@@ -29,3 +29,7 @@ PERSON_CONFIDENCE = 0.4        # Min confidence for person detection
 WEAPON_CONFIDENCE = 0.35       # Min confidence for weapon detection
 TRACK_EXPIRY_SEC = 10          # Remove stale tracks after N seconds
 MAX_TRACK_HISTORY = 300        # Max position entries per track
+
+# Pose Action Thresholds
+AIMING_ARM_ANGLE_TOLERANCE = 25  # Degrees. If arm is within +/- this of horizontal, it's aiming
+STABBING_WRIST_HEIGHT_RATIO = 0.8  # If wrist is this high above shoulder (relative to body size), it's a stab ready

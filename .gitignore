@@ -34,3 +34,5 @@ services/face-detection/data/suspicious/*
 services/face-detection/data/threat/*
 services/face-detection/data/undetected/*
 services/face-detection/data/unidentified/*
+
+Weapon-Detection-System/
