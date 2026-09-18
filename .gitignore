@@ -1,5 +1,5 @@
 # Python
-venv/
+myvenv/
 __pycache__/
 *.pyc
 
@@ -19,3 +19,5 @@ test/models/
 .vscode/
 .DS_Store
 Thumbs.db
+
+Border_*.md
