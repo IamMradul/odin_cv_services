@@ -1,30 +1,36 @@
+import os
+import torch
 import numpy as np
 from ultralytics import YOLO
 from . import config
 
-import os
-
 class WeaponDetector:
-    def __init__(self, weights_path: str = "Weapon_model.pt"): # Defaulting to standard model if weapon model not provided, ideally change to 'weapon_detector.pt' when available
-        # Note: For demo, if a dedicated weapon model isn't available, we might just load YOLOv8n
-        # but in production this must point to a weapon-finetuned model.
+    def __init__(self):
+        # Resolve the model path relative to this file's directory
+        base_dir = os.path.dirname(__file__)
+        model_path = os.path.abspath(os.path.join(base_dir, "..", config.WEAPON_MODEL_PATH))
+        
         try:
-            model_path = os.path.join(os.path.dirname(__file__), weights_path) if not os.path.isabs(weights_path) else weights_path
             self.model = YOLO(model_path)
+            print(f"Loaded weapon model from {model_path}")
         except Exception as e:
             print(f"Warning: Could not load weapon model {model_path}: {e}")
             self.model = None
-            
-        # Assuming classes 0: gun, 1: knife for a custom weapon model
-        # Adjust these based on the actual model used
-        self.weapon_classes = {0: "gun", 1: "knife", 2: "sharp_object"}
-        # If using standard yolov8 for testing, knife is sometimes 43.
+
+        # Fallback names in case the model doesn't have them
+        self.fallback_names = {
+            0: "Gun",
+            1: "explosion",
+            2: "grenade",
+            3: "knife"
+        }
 
     def detect(self, frame: np.ndarray):
         detections = []
         if self.model is None:
             return detections
             
+        # Run inference
         results = self.model(frame, verbose=False, device="cuda" if torch.cuda.is_available() else "cpu")[0]
         
         if results.boxes is not None:
@@ -35,11 +41,19 @@ class WeaponDetector:
                     
                 cls_id = int(box.cls[0])
                 
-                # If we're using a standard COCO model as fallback, let's map knife (43)
-                label = self.weapon_classes.get(cls_id, "weapon")
-                if label == "weapon" and cls_id == 43:
-                     label = "knife"
-                     
+                # Get label from model.names or fallback
+                label = self.model.names.get(cls_id, self.fallback_names.get(cls_id, f"class_{cls_id}"))
+                
+                # We specifically map them to capitalization standards used in the dashboard
+                if label.lower() == "gun":
+                    label = "Gun"
+                elif label.lower() == "explosion":
+                    label = "Explosive"
+                elif label.lower() == "grenade":
+                    label = "Grenade"
+                elif label.lower() == "knife":
+                    label = "Knife"
+
                 xyxy = [int(v) for v in box.xyxy[0].tolist()]
                 
                 detections.append({
@@ -49,5 +63,3 @@ class WeaponDetector:
                 })
                 
         return detections
-
-import torch 

@@ -24,6 +24,7 @@ async def init_db():
                 best_snapshot_path TEXT,
                 best_confidence REAL,
                 avg_confidence REAL,
+                clip_path TEXT,
                 metadata JSON,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
@@ -38,6 +39,7 @@ async def init_db():
                 confidence REAL,
                 timestamp DATETIME,
                 snapshot_path TEXT,
+                clip_path TEXT,
                 details TEXT,
                 acknowledged BOOLEAN DEFAULT 0,
                 false_positive BOOLEAN DEFAULT 0
@@ -67,8 +69,8 @@ async def insert_event_log(log_data: dict):
                 object_type, object_subtype, timestamp, position, confidence,
                 snapshot_path, duration_seconds, total_frames_seen,
                 trajectory_summary, best_snapshot_path, best_confidence,
-                avg_confidence, metadata
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                avg_confidence, clip_path, metadata
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             log_data['id'],
             log_data['object_id'],
@@ -88,8 +90,18 @@ async def insert_event_log(log_data: dict):
             log_data.get('best_snapshot_path'),
             log_data.get('best_confidence'),
             log_data.get('avg_confidence'),
+            log_data.get('clip_path'),
             json.dumps(log_data.get('metadata', {}))
         ))
+        await db.commit()
+
+async def update_retroactive_global_id(object_id: str, global_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        await db.execute('''
+            UPDATE event_logs 
+            SET global_id = ? 
+            WHERE object_id = ? AND event_type = 'ENTRY'
+        ''', (global_id, object_id))
         await db.commit()
 
 async def insert_object_alert(alert_data: dict):
@@ -97,8 +109,8 @@ async def insert_object_alert(alert_data: dict):
         await db.execute('''
             INSERT INTO object_alerts (
                 id, object_id, alert_type, severity, confidence,
-                timestamp, snapshot_path, details
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                timestamp, snapshot_path, clip_path, details
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ''', (
             alert_data['id'],
             alert_data['object_id'],
@@ -107,6 +119,7 @@ async def insert_object_alert(alert_data: dict):
             alert_data['confidence'],
             alert_data['timestamp'],
             alert_data['snapshot_path'],
+            alert_data.get('clip_path'),
             alert_data['details']
         ))
         await db.commit()
@@ -163,6 +176,10 @@ async def query_event_logs(filters: dict):
         query = "SELECT * FROM event_logs WHERE 1=1"
         params = []
         
+        if filters.get("since"):
+            query += " AND timestamp > ?"
+            params.append(filters["since"])
+            
         query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
         params.extend([filters.get("limit", 100), filters.get("offset", 0)])
         

@@ -1,9 +1,9 @@
 import time
 import math
+import numpy as np
 from . import config
 
 def compute_iou(boxA, boxB):
-    # box = [x1, y1, x2, y2]
     xA = max(boxA[0], boxB[0])
     yA = max(boxA[1], boxB[1])
     xB = min(boxA[2], boxB[2])
@@ -31,36 +31,10 @@ class BehaviorAnalyzer:
         self.K_L_HIP = 11
         self.K_R_HIP = 12
 
-    def _get_angle(self, p1, p2):
-        # Calculate angle between two points relative to horizontal
-        dy = p2[1] - p1[1]
-        dx = p2[0] - p1[0]
-        angle = math.degrees(math.atan2(dy, dx))
-        return angle
-
-    def _is_aiming(self, keypoints):
-        if keypoints is None or len(keypoints) < 17:
-            return False
-            
-        # Check both arms. An arm is aiming if it's extended relatively horizontally.
-        for shoulder_idx, wrist_idx in [(self.K_L_SHOULDER, self.K_L_WRIST), (self.K_R_SHOULDER, self.K_R_WRIST)]:
-            shoulder = keypoints[shoulder_idx]
-            wrist = keypoints[wrist_idx]
-            
-            # Check confidence of keypoints (index 2 is confidence)
-            if shoulder[2] > 0.5 and wrist[2] > 0.5:
-                angle = self._get_angle(shoulder, wrist)
-                # If the angle is close to 0 (right) or 180/-180 (left), the arm is horizontal
-                if abs(angle) < config.AIMING_ARM_ANGLE_TOLERANCE or abs(abs(angle) - 180) < config.AIMING_ARM_ANGLE_TOLERANCE:
-                    return True
-        return False
-
     def _is_stabbing(self, keypoints, box):
         if keypoints is None or len(keypoints) < 17:
             return False
             
-        # A stab is typically an overhead strike, so wrist is significantly higher than shoulder.
-        # Use body height as a reference to make it scale-invariant.
         box_height = box[3] - box[1]
         
         for shoulder_idx, wrist_idx in [(self.K_L_SHOULDER, self.K_L_WRIST), (self.K_R_SHOULDER, self.K_R_WRIST)]:
@@ -88,17 +62,6 @@ class BehaviorAnalyzer:
                     severity = "CRITICAL"
                     details = f"Person #{person['track_id']} holding {weapon['label']}"
                     
-                    # Escalate alert based on pose if keypoints are available
-                    keypoints = person.get("keypoints")
-                    if weapon["label"] in ["gun", "weapon"]:
-                        if self._is_aiming(keypoints):
-                            alert_type = "AIMING_WEAPON"
-                            details = f"Person #{person['track_id']} is AIMING a {weapon['label']}!"
-                    elif weapon["label"] in ["knife", "sharp_object"]:
-                        if self._is_stabbing(keypoints, person_box):
-                            alert_type = "STABBING_ATTEMPT"
-                            details = f"Person #{person['track_id']} is making a STABBING motion!"
-                            
                     alerts.append({
                         "alert_type": alert_type,
                         "severity": severity,
@@ -141,7 +104,7 @@ class BehaviorAnalyzer:
                     alerts.append({
                         "alert_type": "LOITERING",
                         "severity": "MEDIUM",
-                        "confidence": 0.8,  # Heuristic
+                        "confidence": 0.8,
                         "box": person["box"],
                         "track_id": person["track_id"],
                         "duration_seconds": round(duration, 1),
@@ -179,28 +142,32 @@ class BehaviorAnalyzer:
                 })
         return alerts
 
-    def check_fighting(self, tracked_persons):
+    def check_stabbing(self, tracked_persons, weapons):
         alerts = []
-        n = len(tracked_persons)
-        for i in range(n):
-            for j in range(i+1, n):
-                p1 = tracked_persons[i]
-                p2 = tracked_persons[j]
+        for person in tracked_persons:
+            person_box = person["box"]
+            keypoints = person.get("keypoints")
+            
+            if not self._is_stabbing(keypoints, person_box):
+                continue
                 
-                iou = compute_iou(p1["box"], p2["box"])
-                if iou > config.FIGHT_IOU_THRESHOLD:
-                    # simplistic check: overlap and enough history
-                    if len(p1["history"]) > config.FIGHT_PERSIST_FRAMES and len(p2["history"]) > config.FIGHT_PERSIST_FRAMES:
-                        
-                        # could also check motion here
-                        alerts.append({
-                            "alert_type": "FIGHTING_OR_CLOSE_CONTACT",
-                            "severity": "HIGH",
-                            "confidence": 0.7,
-                            "box": p1["box"], # bounding box of first person
-                            "track_id": p1["track_id"],
-                            "details": f"Person #{p1['track_id']} and #{p2['track_id']} in sustained close contact"
-                        })
+            for weapon in weapons:
+                if weapon["label"] not in ["Knife", "knife", "sharp_object"]:
+                    continue
+                    
+                weapon_box = weapon["box"]
+                iou = compute_iou(person_box, weapon_box)
+                
+                if iou > config.STABBING_KNIFE_IOU:
+                    alerts.append({
+                        "alert_type": "STABBING_ATTEMPT",
+                        "severity": "CRITICAL",
+                        "confidence": weapon["confidence"],
+                        "box": person_box,
+                        "track_id": person["track_id"],
+                        "weapon_class": weapon["label"],
+                        "details": f"Person #{person['track_id']} making stabbing motion with knife"
+                    })
         return alerts
 
     def analyze(self, tracked_persons, weapons):
@@ -210,7 +177,7 @@ class BehaviorAnalyzer:
         alerts.extend(self.check_armed_person(tracked_persons, weapons))
         alerts.extend(self.check_loitering(tracked_persons, current_time))
         alerts.extend(self.check_running(tracked_persons))
-        alerts.extend(self.check_fighting(tracked_persons))
+        alerts.extend(self.check_stabbing(tracked_persons, weapons))
         
         # Simple deduplication by track_id and alert_type
         seen = set()
@@ -222,4 +189,3 @@ class BehaviorAnalyzer:
                 deduped.append(a)
                 
         return deduped
-import numpy as np

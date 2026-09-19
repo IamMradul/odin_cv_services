@@ -1,22 +1,73 @@
-import React, { useState } from 'react';
-import { Search, Filter, AlertCircle, Info, CheckCircle, Terminal } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Filter, AlertCircle, Info, CheckCircle, Terminal, Clock } from 'lucide-react';
 import '../components/faces/faces.css';
 
-const MOCK_LOGS = [
-  { id: '1', timestamp: '2026-09-19 10:45:12', level: 'INFO', component: 'System', message: 'Camera CAM-01 initialized successfully.' },
-  { id: '2', timestamp: '2026-09-19 10:46:03', level: 'WARN', component: 'Network', message: 'High latency detected on CAM-02 (250ms).' },
-  { id: '3', timestamp: '2026-09-19 10:47:30', level: 'ERROR', component: 'Hardware', message: 'Connection lost to CAM-04 (Loading Dock).' },
-  { id: '4', timestamp: '2026-09-19 10:50:11', level: 'INFO', component: 'OSINT', message: 'Automated background check completed for ID #8841.' },
-  { id: '5', timestamp: '2026-09-19 10:52:45', level: 'INFO', component: 'Auth', message: 'Operator 1 successfully authenticated.' },
-  { id: '6', timestamp: '2026-09-19 10:55:02', level: 'WARN', component: 'System', message: 'Disk space on volume /data reaching 85%.' },
-  { id: '7', timestamp: '2026-09-19 10:58:19', level: 'INFO', component: 'System', message: 'Routine database backup completed.' },
-];
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost';
+const LOGGING_API = `${API_URL}:8006`;
 
 const Logs = () => {
+  const [logs, setLogs] = useState([]);
   const [filterLevel, setFilterLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
+  // Set session start time on component mount (or app load)
+  const sessionStartTime = useRef(new Date().toISOString());
+  // Track the latest log timestamp we have received
+  const lastTimestamp = useRef(sessionStartTime.current);
 
-  const filteredLogs = MOCK_LOGS.filter(log => {
+  useEffect(() => {
+    let intervalId;
+
+    const fetchLogs = async () => {
+      try {
+        const response = await fetch(`${LOGGING_API}/logs?since=${encodeURIComponent(lastTimestamp.current)}&limit=100`);
+        if (!response.ok) throw new Error('Failed to fetch logs');
+        
+        const newLogs = await response.json();
+        if (newLogs.length > 0) {
+          // Format DB logs into UI format
+          const formattedLogs = newLogs.map(log => {
+            const isEntry = log.event_type === 'ENTRY';
+            const identity = log.global_id || `Unknown ${log.object_subtype || log.object_type}`;
+            const conf = log.confidence ? (log.confidence * 100).toFixed(1) : 'N/A';
+            
+            return {
+              id: log.id,
+              timestamp: log.timestamp.replace('T', ' ').substring(0, 19),
+              rawTimestamp: log.timestamp,
+              level: 'INFO', // Event logs are mostly INFO. Alerts go to the Alerts tab.
+              component: log.source_id,
+              message: `[${log.event_type}] ${identity} detected (Confidence: ${conf}%). ${!isEntry ? `Duration: ${log.duration_seconds?.toFixed(1)}s` : ''}`
+            };
+          });
+
+          // Sort so newest is at the top
+          formattedLogs.sort((a, b) => new Date(b.rawTimestamp) - new Date(a.rawTimestamp));
+          
+          setLogs(prev => {
+            const combined = [...formattedLogs, ...prev];
+            // Sort combined again just in case
+            combined.sort((a, b) => new Date(b.rawTimestamp) - new Date(a.rawTimestamp));
+            // Keep at most 500 logs in memory
+            return combined.slice(0, 500);
+          });
+          
+          // Update the lastTimestamp to the newest log we just fetched
+          const maxTime = newLogs.reduce((max, log) => log.timestamp > max ? log.timestamp : max, lastTimestamp.current);
+          lastTimestamp.current = maxTime;
+        }
+      } catch (err) {
+        console.error('Error fetching logs:', err);
+      }
+    };
+
+    // Fetch immediately, then every 2 seconds
+    fetchLogs();
+    intervalId = setInterval(fetchLogs, 2000);
+
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const filteredLogs = logs.filter(log => {
     const matchesLevel = filterLevel === 'ALL' || log.level === filterLevel;
     const matchesSearch = log.message.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           log.component.toLowerCase().includes(searchQuery.toLowerCase());
@@ -45,8 +96,8 @@ const Logs = () => {
     <div className="face-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title"><Terminal size={24} style={{ display: 'inline', marginRight: 8, verticalAlign: 'text-bottom' }}/> System Logs</h1>
-          <p className="page-subtitle">Real-time application events, diagnostic information, and audit trails.</p>
+          <h1 className="page-title"><Terminal size={24} style={{ display: 'inline', marginRight: 8, verticalAlign: 'text-bottom' }}/> Session Logs</h1>
+          <p className="page-subtitle">Real-time event streams starting from when you opened this dashboard.</p>
         </div>
       </div>
 
@@ -77,7 +128,7 @@ const Logs = () => {
             <tr style={{ background: 'var(--bg-color)', borderBottom: '1px solid var(--border-color)' }}>
               <th style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--text-muted)' }}>Timestamp</th>
               <th style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--text-muted)' }}>Level</th>
-              <th style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--text-muted)' }}>Component</th>
+              <th style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--text-muted)' }}>Source Camera</th>
               <th style={{ padding: 'var(--space-3) var(--space-4)', fontWeight: 600, color: 'var(--text-muted)' }}>Message</th>
             </tr>
           </thead>
@@ -98,7 +149,8 @@ const Logs = () => {
             {filteredLogs.length === 0 && (
               <tr>
                 <td colSpan="4" style={{ padding: 'var(--space-6)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                  No logs found matching your filters.
+                  <Clock size={24} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
+                  Waiting for new events... (Session started at {sessionStartTime.current.replace('T', ' ').substring(0, 19)})
                 </td>
               </tr>
             )}

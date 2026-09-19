@@ -82,9 +82,11 @@ async def patch_alert(id: str, updates: AlertUpdateRequest):
     await update_alert(id, update_data)
     return {"status": "ok"}
 
+from typing import Optional
+
 @app.get("/logs")
-async def get_logs(limit: int = 100, offset: int = 0):
-    logs = await query_event_logs({"limit": limit, "offset": offset})
+async def get_logs(limit: int = 100, offset: int = 0, since: Optional[str] = None):
+    logs = await query_event_logs({"limit": limit, "offset": offset, "since": since})
     return logs
 
 @app.get("/search")
