@@ -2,14 +2,16 @@ from ultralytics import YOLO
 import easyocr
 import cv2
 import numpy as np
+import torch
 
 class ANPRDetector:
     def __init__(self, plate_weights: str = "license_plate_detector.pt"):
         self.plate_model = YOLO(plate_weights)
-        self.reader = easyocr.Reader(['en'], gpu=True)
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
 
     def infer(self, frame: np.ndarray):
-        results = self.plate_model(frame, device="cuda", verbose=False)[0]
+        results = self.plate_model(frame, device=self.device, verbose=False)[0]
         detections = []
 
         if results.boxes is not None:
