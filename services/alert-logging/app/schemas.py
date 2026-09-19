@@ -67,3 +67,14 @@ class ActiveObjectResponse(BaseModel):
     total_frames: int
     best_confidence: float
     last_position: tuple
+
+class AlertUpdateRequest(BaseModel):
+    status: Optional[str] = None
+    note: Optional[str] = None
+    operator: Optional[str] = None
+    false_positive: Optional[bool] = None
+
+class StatsResponse(BaseModel):
+    total_alerts: int
+    alerts_by_severity: Dict[str, int]
+    active_objects: int
