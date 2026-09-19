@@ -109,6 +109,54 @@
   gap: 4px;
 }
 
+.footage-card-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.footage-action-btn {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--font-xs);
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-input);
+  transition: all var(--transition-base);
+}
+
+.footage-action-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.smart-btn {
+  background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+  border: none;
+  color: white;
+}
+
+.smart-btn:hover:not(:disabled) {
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.smart-btn:disabled {
+  opacity: 0.8;
+  cursor: not-allowed;
+  filter: grayscale(20%);
+}
+
+.icon-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ─── Footage Viewer Panel ────────────────────────────────────── */
 .footage-viewer-overlay {
   position: fixed;
