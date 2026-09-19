@@ -1,4 +1,5 @@
 # Python
+myvenv/
 venv/
 __pycache__/
 *.pyc
@@ -15,3 +16,22 @@ test/outputs/
 .vscode/
 .DS_Store
 Thumbs.db
+
+Border_*.md
+
+start_*.ps1
+
+startup.bat
+
+# SSL certificates
+*.pem
+
+#data from face detection
+services/face-detection/data/snapshots/*
+services/face-detection/data/safe/*
+services/face-detection/data/suspicious/*
+services/face-detection/data/threat/*
+services/face-detection/data/undetected/*
+services/face-detection/data/unidentified/*
+
+Weapon-Detection-System/

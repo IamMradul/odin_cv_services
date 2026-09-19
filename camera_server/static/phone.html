@@ -88,7 +88,12 @@
     function sendLoop(myLoopId) {
       if (myLoopId !== loopId) return;   // a newer generation has started — this one quietly stops
 
-      if (ws && ws.readyState === WebSocket.OPEN) {
+      if (ws && ws.readyState === WebSocket.OPEN && video.videoWidth > 0) {
+        if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+        }
+
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
           if (blob && myLoopId === loopId) {

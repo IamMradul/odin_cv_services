@@ -56,6 +56,17 @@ async def run_detection(source_id: str, frame_bytes: bytes):
         result = resp.json()
         result["_timestamp"] = time.time()
         await broadcast(source_id, result, binary=False)
+        
+        # Forward to Event Logger
+        try:
+            await http_client.post(
+                "http://localhost:8006/ingest",
+                data={"source_id": source_id, "detections": json.dumps(result)},
+                files={"frame": ("frame.jpg", frame_bytes, "image/jpeg")},
+                timeout=2.0
+            )
+        except Exception:
+            pass
     except Exception as e:
         print(f"detection call failed for {source_id}: {type(e).__name__}: {e}")
     finally:

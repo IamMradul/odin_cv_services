@@ -121,14 +121,24 @@ This reuses the exact same 8 services — a video-analysis component is just a d
 **Multi-camera scaling (4-5+ simultaneous frames):**
 Each camera/phone source gets a `source_id`. Every frame sent to the gateway is tagged with which source it came from, so results from camera 3 don't get mixed into camera 5's display panel. The frontend renders one panel per active `source_id`, added dynamically as phones connect — no architectural change to the services themselves, only to the gateway's routing/tagging and the frontend's layout.
 
-## 6. What's already built and verified
+## 6. Current Project Status & Scorecard
 
-- `human-detection`: YOLOv8 + built-in tracking (ByteTrack via `.track()`), tested end-to-end on a real video — boxes and stable track IDs confirmed working.
-- `vehicle-detection`: same YOLOv8 approach restricted to vehicle classes (car/motorcycle/bus/truck), tested on a traffic video — correct classification and boxes confirmed. Known gap: small/distant objects (e.g. a scooter) sometimes missed with the nano model; addressable later with a larger model variant or lower confidence threshold.
-- `anpr`: two-stage (YOLOv8 plate detector + EasyOCR for text extraction) — in progress, being tested now.
-- Unified `test/` directory with a shared `loader.py` pattern so any service's `model.py` can be tested standalone or in combination with others, without needing Docker or the gateway running.
-- `gateway/main.py` skeleton exists, calling services independently with per-call timeouts and try/except, so failures don't cascade.
-- `docker-compose.yml` skeleton exists — new services just need one more entry.
+| Component | Status | Owner |
+|---|---|---|
+| Human Detection | 🟢 Done | Siddharth |
+| Vehicle Detection | 🟢 Done | Siddharth |
+| Face Detection | 🟢 Done | Mradul |
+| ANPR | 🟡 Needs plate weights | Siddharth |
+| Suspicious Activity | 🟢 Done | Akshat |
+| Virtual Fence | 🔴 Not started | Akshat |
+| Night Movement | 🔴 Not started | Akshat |
+| Event Logging | 🟢 Code done, needs testing | Mayank/Akshat |
+| Gateway | 🟢 Done | Siddharth |
+| Camera Server | 🟢 Done | Siddharth |
+| Phone + Viewer UI | 🟢 Done | Siddharth |
+| Startup Script | 🟢 Done | Siddharth |
+
+**Overall: 6 out of 8 detection services complete. Core infrastructure is fully operational.**
 
 ## 7. Workflow for pushing new services
 
