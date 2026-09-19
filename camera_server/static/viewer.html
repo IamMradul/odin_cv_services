@@ -1,118 +1,155 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-<title>Odin-CV Live Viewer</title>
-<style>
-  body { margin:0; background:#111; font-family:sans-serif; color:#eee; overflow:hidden; }
-  #wrap { position:relative; width:100vw; height:100vh; display:flex; justify-content:center; align-items:center; }
-  canvas { width:100%; height:100%; object-fit:contain; background:#000; }
-  #hud {
-    position:absolute; top:8px; left:8px; background:rgba(0,0,0,0.65);
-    padding:8px 12px; border-radius:6px; font-size:13px; line-height:1.5;
-    border-left:4px solid #888;
-  }
-  .ok { color:#4caf50; } .bad { color:#f44336; }
-</style>
+  <title>Odin-CV Live Viewer</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      font-family: sans-serif;
+      color: #eee;
+      overflow: hidden;
+    }
+
+    #wrap {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+    }
+
+    #hud {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      background: rgba(0, 0, 0, 0.65);
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 13px;
+      line-height: 1.5;
+      border-left: 4px solid #888;
+    }
+
+    .ok {
+      color: #4caf50;
+    }
+
+    .bad {
+      color: #f44336;
+    }
+  </style>
 </head>
+
 <body>
-<div id="wrap">
-  <canvas id="canvas"></canvas>
-  <div id="hud">
-    <div>source: cam1 | fps: <span id="fps">0</span></div>
-    <div id="serviceStatus"></div>
+  <div id="wrap">
+    <canvas id="canvas"></canvas>
+    <div id="hud">
+      <div>source: cam1 | fps: <span id="fps">0</span></div>
+      <div id="serviceStatus"></div>
+    </div>
   </div>
-</div>
-<script>
-const SOURCE_ID = "cam1";
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const fpsEl = document.getElementById("fps");
-const statusEl = document.getElementById("serviceStatus");
-const hud = document.getElementById("hud");
+  <script>
+    const SOURCE_ID = "cam1";
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+    const fpsEl = document.getElementById("fps");
+    const statusEl = document.getElementById("serviceStatus");
+    const hud = document.getElementById("hud");
 
-let img = new Image();
-let latestDetections = {};
-let frameCount = 0;
-let canvasReady = false;
+    let img = new Image();
+    let latestDetections = {};
+    let frameCount = 0;
+    let canvasReady = false;
 
-setInterval(() => { fpsEl.textContent = frameCount; frameCount = 0; }, 1000);
+    setInterval(() => { fpsEl.textContent = frameCount; frameCount = 0; }, 1000);
 
-const COLORS = { human: "#00ff00", vehicle: "#ff8800", anpr: "#ff0033", suspicious: "#9c27b0" };
+    const COLORS = { human: "#00ff00", vehicle: "#ff8800", anpr: "#ff0033", suspicious: "#9c27b0" };
 
-function drawFrame() {
-  if (!canvasReady) return;
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    function drawFrame() {
+      if (!canvasReady) return;
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-  for (const [service, result] of Object.entries(latestDetections)) {
-    if (!result || !result.ok || !result.detections) continue;
-    const color = COLORS[service] || "#ffffff";
-    ctx.lineWidth = service === 'suspicious' ? 4 : 2;
-    ctx.font = "14px sans-serif";
-    for (const d of result.detections) {
-      let boxColor = color;
-      if (service === 'face') {
-        if (d.status === 'criminal') boxColor = '#ff0000';
-        else if (d.status === 'safe') boxColor = '#00ff00';
-      }
-      ctx.strokeStyle = boxColor;
-      ctx.fillStyle = boxColor;
+      for (const [service, result] of Object.entries(latestDetections)) {
+        if (!result || !result.ok || !result.detections) continue;
+        const color = COLORS[service] || "#ffffff";
+        ctx.lineWidth = service === 'suspicious' ? 4 : 2;
+        ctx.font = "14px sans-serif";
+        for (const d of result.detections) {
+          let boxColor = color;
+          if (service === 'face') {
+            if (d.status === 'threat' || d.status === 'criminal') boxColor = '#ff0000';
+            else if (d.status === 'safe') boxColor = '#00ff00';
+          }
+          ctx.strokeStyle = boxColor;
+          ctx.fillStyle = boxColor;
 
-      const [x1, y1, x2, y2] = d.box;
-      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-      
-      let label = "";
-      if (service === 'suspicious') {
-          label = `[${d.severity}] ${d.alert_type}`;
-      } else {
-          label = d.plate_text || `${d.label} ${d.track_id ?? ""}`;
-      }
-      
-      ctx.fillText(label, x1 + 2, Math.max(12, y1 - 4));
-    }
-  }
-}
+          const [x1, y1, x2, y2] = d.box;
+          ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
 
-function updateStatusHUD() {
-  statusEl.innerHTML = Object.entries(latestDetections).map(([name, r]) => {
-    const cls = r && r.ok ? "ok" : "bad";
-    const count = r && r.detections ? r.detections.length : 0;
-    return `<div class="${cls}">${name}: ${r && r.ok ? count + " found" : "down"}</div>`;
-  }).join("");
-}
+          let label = "";
+          if (service === 'suspicious') {
+            label = `[${d.severity}] ${d.alert_type}`;
+          } else {
+            label = d.plate_text || `${d.label} ${d.track_id ?? ""}`;
+          }
 
-function connectViewerWS() {
-  const ws = new WebSocket(`wss://${location.host}/ws/view/${SOURCE_ID}`);
-  ws.binaryType = "arraybuffer";
-
-  ws.onopen = () => hud.style.borderLeft = "4px solid #4caf50";
-  ws.onclose = () => { hud.style.borderLeft = "4px solid #f44336"; setTimeout(connectViewerWS, 1500); };
-  ws.onerror = () => hud.style.borderLeft = "4px solid #f44336";
-
-  ws.onmessage = (event) => {
-    if (typeof event.data === "string") {
-      const payload = JSON.parse(event.data);
-      delete payload._timestamp;
-      latestDetections = payload;
-      updateStatusHUD();
-    } else {
-      const blob = new Blob([event.data], { type: "image/jpeg" });
-      const url = URL.createObjectURL(blob);
-      const prevUrl = img.src;
-      img.onload = () => {
-        if (!canvasReady) {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvasReady = true;
+          ctx.fillText(label, x1 + 2, Math.max(12, y1 - 4));
         }
-        drawFrame();
-        frameCount++;
-        if (prevUrl) URL.revokeObjectURL(prevUrl);
-      };
-      img.src = url;
+      }
     }
-  };
-}
-connectViewerWS();
-</script>
+
+    function updateStatusHUD() {
+      statusEl.innerHTML = Object.entries(latestDetections).map(([name, r]) => {
+        const cls = r && r.ok ? "ok" : "bad";
+        const count = r && r.detections ? r.detections.length : 0;
+        return `<div class="${cls}">${name}: ${r && r.ok ? count + " found" : "down"}</div>`;
+      }).join("");
+    }
+
+    function connectViewerWS() {
+      const ws = new WebSocket(`wss://${location.host}/ws/view/${SOURCE_ID}`);
+      ws.binaryType = "arraybuffer";
+
+      ws.onopen = () => hud.style.borderLeft = "4px solid #4caf50";
+      ws.onclose = () => { hud.style.borderLeft = "4px solid #f44336"; setTimeout(connectViewerWS, 1500); };
+      ws.onerror = () => hud.style.borderLeft = "4px solid #f44336";
+
+      ws.onmessage = (event) => {
+        if (typeof event.data === "string") {
+          const payload = JSON.parse(event.data);
+          delete payload._timestamp;
+          latestDetections = payload;
+          updateStatusHUD();
+        } else {
+          const blob = new Blob([event.data], { type: "image/jpeg" });
+          const url = URL.createObjectURL(blob);
+          const prevUrl = img.src;
+          img.onload = () => {
+            if (!canvasReady) {
+              canvas.width = img.width;
+              canvas.height = img.height;
+              canvasReady = true;
+            }
+            drawFrame();
+            frameCount++;
+            if (prevUrl) URL.revokeObjectURL(prevUrl);
+          };
+          img.src = url;
+        }
+      };
+    }
+    connectViewerWS();
+  </script>
 </body>
+
 </html>
