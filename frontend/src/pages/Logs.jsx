@@ -10,7 +10,9 @@ const Logs = () => {
   const [filterLevel, setFilterLevel] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   // Set session start time on component mount (or app load)
-  const sessionStartTime = useRef(new Date().toISOString());
+  // Python datetime.isoformat() uses +00:00 for UTC, while JS uses Z. 
+  // We must match Python's format so SQLite string comparison works correctly!
+  const sessionStartTime = useRef(new Date().toISOString().replace('Z', '+00:00'));
   // Track the latest log timestamp we have received
   const lastTimestamp = useRef(sessionStartTime.current);
 
