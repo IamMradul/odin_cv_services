@@ -1,4 +1,5 @@
 import time
+import os
 from collections import deque
 import numpy as np
 import torch
@@ -6,8 +7,10 @@ from ultralytics import YOLO
 from . import config
 
 class PersonTracker:
-    def __init__(self, weights_path: str = "yolov8n-pose.pt"):
-        self.model = YOLO(weights_path)
+    def __init__(self):
+        base_dir = os.path.dirname(__file__)
+        model_path = os.path.abspath(os.path.join(base_dir, "..", config.POSE_MODEL_PATH))
+        self.model = YOLO(model_path)
         self.person_class_id = 0
         
         # State: track_id -> deque of (x_center, y_center, timestamp)
