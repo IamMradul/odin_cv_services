@@ -3,7 +3,7 @@ services:
   gateway:
     build: ./gateway
     ports: ["8000:8000"]
-    depends_on: [human-detection, vehicle-detection, face-detection, anpr]
+    depends_on: [human-detection, vehicle-detection, face-detection, anpr, suspicious-activity]
 
   human-detection:
     build: ./services/human-detection
@@ -20,3 +20,16 @@ services:
   anpr:
     build: ./services/anpr
     ports: ["8004:8004"]
+
+  suspicious-activity:
+    build: ./services/suspicious-activity
+    ports: ["8005:8005"]
+
+  alert-logging:
+    build: ./services/alert-logging
+    ports: ["8006:8006"]
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"

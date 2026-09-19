@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+aiosqlite
+python-multipart
+opencv-python-headless
+numpy

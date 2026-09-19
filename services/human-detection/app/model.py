@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 import numpy as np
+import torch
 
 class HumanDetector:
     def __init__(self, weights: str = "yolov8n.pt"):
@@ -11,7 +12,7 @@ class HumanDetector:
             frame,
             persist=True,
             classes=[self.person_class_id],
-            device="cuda",
+            device="cuda" if torch.cuda.is_available() else "cpu",
             verbose=False,
         )[0]
 
