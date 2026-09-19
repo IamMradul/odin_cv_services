@@ -1,5 +1,6 @@
 from ultralytics import YOLO
 import numpy as np
+import torch
 
 class VehicleDetector:
     VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
@@ -12,7 +13,7 @@ class VehicleDetector:
             frame,
             persist=True,
             classes=list(self.VEHICLE_CLASSES.keys()),
-            device="cuda",
+            device="cuda" if torch.cuda.is_available() else "cpu",
             verbose=False,
         )[0]
 
