@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { X, Play, Pause, SkipBack, SkipForward, Maximize2, Camera, Download } from 'lucide-react';
 import { FootageTimeline } from './FootageTimeline';
 import './footage.css';
@@ -9,11 +9,22 @@ const MOCK_CLIP_EVENTS = [
   { label: 'Alert triggered', severity: 'critical' },
 ];
 
-export const FootageViewer = ({ clip, isOpen, onClose }) => {
+export const FootageViewer = ({ clip, videoUrl, displayTitle, isOpen, onClose }) => {
   const [playing, setPlaying] = useState(false);
   const [frame, setFrame] = useState(0);
   const videoRef = useRef();
   const totalFrames = 300;
+
+  useEffect(() => {
+    if (isOpen && videoRef.current) {
+      // Auto-play when opened
+      videoRef.current.play().catch(e => console.log('Auto-play prevented:', e));
+      setPlaying(true);
+    } else if (!isOpen && videoRef.current) {
+      videoRef.current.pause();
+      setPlaying(false);
+    }
+  }, [isOpen, videoUrl]);
 
   if (!clip) return null;
 
@@ -22,6 +33,18 @@ export const FootageViewer = ({ clip, isOpen, onClose }) => {
       if (playing) videoRef.current.pause();
       else videoRef.current.play();
       setPlaying(p => !p);
+    }
+  };
+
+  const toggleFullScreen = () => {
+    if (videoRef.current) {
+      if (!document.fullscreenElement) {
+        videoRef.current.requestFullscreen().catch(err => {
+          console.error(`Error attempting to enable fullscreen: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen();
+      }
     }
   };
 
@@ -34,8 +57,8 @@ export const FootageViewer = ({ clip, isOpen, onClose }) => {
       <div className={`footage-viewer-panel ${isOpen ? 'open' : ''}`}>
         <div className="fvp-header">
           <div>
-            <h2 className="fvp-title">{clip.title}</h2>
-            <p className="fvp-meta">{clip.camera} · {clip.date} · {clip.time}</p>
+            <h2 className="fvp-title">{displayTitle || clip.title}</h2>
+            <p className="fvp-meta">{clip.camera} · {clip.date} · {clip.time || 'N/A'}</p>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
             <button className="btn btn-secondary btn-sm"><Download size={13} /> Export</button>
@@ -48,14 +71,14 @@ export const FootageViewer = ({ clip, isOpen, onClose }) => {
           <div className="fvp-screen">
             <video
               ref={videoRef}
-              src="/footage.mp4"
+              src={videoUrl || "/footage.mp4"}
               className="fvp-video"
               loop muted playsInline
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }}
             />
             <div className="fvp-meta-overlay">
-              <span>{clip.cameraId}</span>
-              <span className="font-mono">{clip.time?.split('–')[0]}</span>
+              <span>{clip.cameraId || clip.camera}</span>
+              <span className="font-mono">{clip.time?.split('–')[0] || ''}</span>
             </div>
           </div>
 
@@ -81,15 +104,17 @@ export const FootageViewer = ({ clip, isOpen, onClose }) => {
 
             <div style={{ flex: 'none', display: 'flex', gap: 'var(--space-2)' }}>
               <button className="btn btn-secondary btn-sm"><Camera size={13} /> Snapshot</button>
-              <button className="icon-button" aria-label="Fullscreen"><Maximize2 size={16} /></button>
+              <button className="icon-button" aria-label="Fullscreen" onClick={toggleFullScreen}><Maximize2 size={16} /></button>
             </div>
           </div>
 
           {/* Event Timeline */}
-          <div className="fvp-timeline-section">
-            <h4 className="fvp-section-title">Event Timeline ({clip.events} events)</h4>
-            <FootageTimeline events={clip.events > 0 ? MOCK_CLIP_EVENTS.slice(0, clip.events) : []} />
-          </div>
+          {clip.events > 0 && (
+            <div className="fvp-timeline-section">
+              <h4 className="fvp-section-title">Event Timeline ({clip.events} events)</h4>
+              <FootageTimeline events={MOCK_CLIP_EVENTS.slice(0, clip.events)} />
+            </div>
+          )}
 
           {/* Metadata */}
           <div className="fvp-info-grid">
