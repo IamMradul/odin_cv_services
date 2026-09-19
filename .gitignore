@@ -25,6 +25,8 @@ Border_*.md
 
 start_*.ps1
 
+startup.bat
+
 # SSL certificates
 *.pem
 
