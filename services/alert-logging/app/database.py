@@ -110,3 +110,76 @@ async def insert_object_alert(alert_data: dict):
             alert_data['details']
         ))
         await db.commit()
+
+async def query_alerts(filters: dict):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        query = "SELECT * FROM object_alerts WHERE 1=1"
+        params = []
+        
+        if filters.get("severity") and filters["severity"].lower() != "all":
+            query += " AND LOWER(severity) = ?"
+            params.append(filters["severity"].lower())
+            
+        if filters.get("status") and filters["status"].lower() != "all":
+            if filters["status"].lower() == "acknowledged":
+                query += " AND acknowledged = 1"
+            elif filters["status"].lower() == "new":
+                query += " AND acknowledged = 0"
+                
+        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([filters.get("limit", 50), filters.get("offset", 0)])
+        
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def get_alert_by_id(alert_id: str):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute("SELECT * FROM object_alerts WHERE id = ?", (alert_id,)) as cursor:
+            row = await cursor.fetchone()
+            return dict(row) if row else None
+
+async def update_alert(alert_id: str, updates: dict):
+    async with aiosqlite.connect(DB_PATH) as db:
+        if "status" in updates:
+            # map string status to DB field if needed
+            ack = 1 if updates["status"].lower() in ["acknowledged", "resolved"] else 0
+            await db.execute("UPDATE object_alerts SET acknowledged = ? WHERE id = ?", (ack, alert_id))
+        
+        if "false_positive" in updates:
+            await db.execute("UPDATE object_alerts SET false_positive = ? WHERE id = ?", (int(updates["false_positive"]), alert_id))
+            
+        if "note" in updates:
+            # We don't have a notes array in DB yet, so we append to details for now
+            await db.execute("UPDATE object_alerts SET details = details || '\nNote: ' || ? WHERE id = ?", (updates["note"], alert_id))
+            
+        await db.commit()
+
+async def query_event_logs(filters: dict):
+    async with aiosqlite.connect(DB_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        query = "SELECT * FROM event_logs WHERE 1=1"
+        params = []
+        
+        query += " ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+        params.extend([filters.get("limit", 100), filters.get("offset", 0)])
+        
+        async with db.execute(query, params) as cursor:
+            rows = await cursor.fetchall()
+            return [dict(row) for row in rows]
+
+async def get_stats():
+    async with aiosqlite.connect(DB_PATH) as db:
+        async with db.execute("SELECT COUNT(*) FROM object_alerts") as cursor:
+            total_alerts = (await cursor.fetchone())[0]
+            
+        async with db.execute("SELECT severity, COUNT(*) FROM object_alerts GROUP BY severity") as cursor:
+            rows = await cursor.fetchall()
+            alerts_by_severity = {row[0]: row[1] for row in rows}
+            
+        return {
+            "total_alerts": total_alerts,
+            "alerts_by_severity": alerts_by_severity
+        }
