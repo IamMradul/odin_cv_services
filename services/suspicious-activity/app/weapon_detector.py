@@ -2,14 +2,17 @@ import numpy as np
 from ultralytics import YOLO
 from . import config
 
+import os
+
 class WeaponDetector:
     def __init__(self, weights_path: str = "Weapon_model.pt"): # Defaulting to standard model if weapon model not provided, ideally change to 'weapon_detector.pt' when available
         # Note: For demo, if a dedicated weapon model isn't available, we might just load YOLOv8n
         # but in production this must point to a weapon-finetuned model.
         try:
-            self.model = YOLO(weights_path)
+            model_path = os.path.join(os.path.dirname(__file__), weights_path) if not os.path.isabs(weights_path) else weights_path
+            self.model = YOLO(model_path)
         except Exception as e:
-            print(f"Warning: Could not load weapon model {weights_path}: {e}")
+            print(f"Warning: Could not load weapon model {model_path}: {e}")
             self.model = None
             
         # Assuming classes 0: gun, 1: knife for a custom weapon model
