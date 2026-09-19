@@ -4,9 +4,10 @@ import json
 import os
 import cv2
 import numpy as np
+import asyncio
 from datetime import datetime, timezone
-from .config import TRACK_EXPIRY_SEC, TRAJECTORY_SAMPLE_INTERVAL, SNAPSHOT_DIR
-from .database import insert_event_log, insert_object_alert
+from .config import TRACK_EXPIRY_SEC, TRAJECTORY_SAMPLE_INTERVAL, SNAPSHOT_DIR, CLIP_DIR
+from .database import insert_event_log, insert_object_alert, update_retroactive_global_id
 
 # In-memory store: {(source_id, track_id): ActiveObjectDict}
 active_objects = {}
@@ -40,6 +41,37 @@ def save_snapshot(frame_bytes, box, snap_id):
         print(f"Error saving snapshot: {e}")
         return None
 
+def create_clip_sync(frame_bytes_list, clip_id):
+    if not frame_bytes_list:
+        return None
+    try:
+        # Decode first frame to get dimensions
+        nparr = np.frombuffer(frame_bytes_list[0], np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        h, w = img.shape[:2]
+        
+        path = os.path.join(CLIP_DIR, f"{clip_id}.mp4")
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        # Assume 15 fps as rough estimate for the clip
+        out = cv2.VideoWriter(path, fourcc, 15.0, (w, h))
+        
+        for f_bytes in frame_bytes_list:
+            arr = np.frombuffer(f_bytes, np.uint8)
+            frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+            if frame is not None:
+                out.write(frame)
+                
+        out.release()
+        return path
+    except Exception as e:
+        print(f"Error saving clip: {e}")
+        return None
+
+async def create_clip(frame_bytes_list, clip_id):
+    return await asyncio.to_thread(create_clip_sync, frame_bytes_list, clip_id)
+
 async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
     current_time = time.time()
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -47,21 +79,13 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
     # Flatten all detections that have a track_id
     tracked_items = []
     
-    # 1. Process regular tracked items (humans, vehicles)
     for service_name in ["human", "vehicle", "face", "anpr"]:
         res = detections.get(service_name)
         if res and res.get("ok"):
             for d in res.get("detections", []):
                 if d.get("track_id") is not None:
                     tracked_items.append({**d, "object_type": service_name})
-                elif d.get("person_id") is not None:
-                     # Face detection returns person_id, we might associate this with a human track later
-                     pass
-                elif d.get("plate_text") is not None:
-                     # ANPR might not have track_id natively, handle if needed
-                     pass
 
-    # Process items
     for item in tracked_items:
         track_id = item["track_id"]
         key = (source_id, track_id)
@@ -73,7 +97,7 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
             # NEW OBJECT - ENTRY LOG
             obj_id = f"{source_id}_trk{track_id}_{int(current_time)}"
             snap_id = f"{obj_id}_entry"
-            snap_path = save_snapshot(frame_bytes, item["box"], snap_id)
+            snap_path = await asyncio.to_thread(save_snapshot, frame_bytes, item["box"], snap_id)
             
             metadata = {}
             if item.get("label"): metadata["label"] = item["label"]
@@ -93,11 +117,11 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                 "best_snapshot_path": snap_path,
                 "best_box": item["box"],
                 "metadata": metadata,
-                "global_id": item.get("person_id") or item.get("plate_text") # Map if we have them
+                "global_id": item.get("person_id") or item.get("plate_text"),
+                "frames": [frame_bytes] # Buffer frames for the clip
             }
             active_objects[key] = obj_data
             
-            # Insert ENTRY log
             await insert_event_log({
                 "id": str(uuid.uuid4()),
                 "object_id": obj_id,
@@ -120,6 +144,14 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
             obj["last_seen_at"] = current_time
             obj["total_frames"] += 1
             obj["confidence_sum"] += conf
+            obj["frames"].append(frame_bytes)
+            
+            # Update global_id if we didn't have one and just found it
+            new_global_id = item.get("person_id") or item.get("plate_text")
+            if new_global_id and not obj["global_id"]:
+                obj["global_id"] = new_global_id
+                # Retroactively update the ENTRY log
+                await update_retroactive_global_id(obj["object_id"], new_global_id)
             
             if obj["total_frames"] % TRAJECTORY_SAMPLE_INTERVAL == 0:
                 pos["t"] = int(current_time - obj["first_seen_at"])
@@ -128,14 +160,13 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
             if conf > obj["best_confidence"]:
                 obj["best_confidence"] = conf
                 obj["best_box"] = item["box"]
-                # Replace best snapshot if it's much better (or we could just take it)
                 if frame_bytes:
                      snap_id = f"{obj['object_id']}_best"
-                     snap_path = save_snapshot(frame_bytes, item["box"], snap_id)
+                     snap_path = await asyncio.to_thread(save_snapshot, frame_bytes, item["box"], snap_id)
                      if snap_path:
                          obj["best_snapshot_path"] = snap_path
                          
-    # 2. Process Alerts (from suspicious service)
+    # Process Alerts (from suspicious service)
     susp = detections.get("suspicious")
     if susp and susp.get("ok"):
         for alert in susp.get("detections", []):
@@ -143,13 +174,20 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                 alert_track_id = alert["track_id"]
                 key = (source_id, alert_track_id)
                 obj_id = None
+                recent_frames = [frame_bytes]
                 
                 if key in active_objects:
                     obj_id = active_objects[key]["object_id"]
+                    # Grab up to the last 150 frames (~5-10 seconds) for the alert clip
+                    recent_frames = active_objects[key]["frames"][-150:]
                 
                 if obj_id:
-                    alert_snap_id = f"alert_{uuid.uuid4().hex[:8]}"
-                    alert_snap_path = save_snapshot(frame_bytes, alert["box"], alert_snap_id)
+                    alert_uuid = uuid.uuid4().hex[:8]
+                    alert_snap_id = f"alert_{alert_uuid}"
+                    alert_clip_id = f"alert_clip_{alert_uuid}"
+                    
+                    alert_snap_path = await asyncio.to_thread(save_snapshot, frame_bytes, alert["box"], alert_snap_id)
+                    alert_clip_path = await create_clip(recent_frames, alert_clip_id)
                     
                     await insert_object_alert({
                         "id": str(uuid.uuid4()),
@@ -159,6 +197,7 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                         "confidence": alert.get("confidence", 1.0),
                         "timestamp": now_iso,
                         "snapshot_path": alert_snap_path,
+                        "clip_path": alert_clip_path,
                         "details": alert.get("details", f"Alert triggered for track {alert_track_id}")
                     })
 
@@ -178,6 +217,13 @@ async def sweep_expired():
         duration = obj["last_seen_at"] - obj["first_seen_at"]
         avg_conf = obj["confidence_sum"] / max(1, obj["total_frames"])
         
+        # Generate the full journey clip
+        clip_id = f"{obj['object_id']}_full"
+        clip_path = await create_clip(obj["frames"], clip_id)
+        
+        # Free up memory (frames list can be large)
+        del obj["frames"]
+        
         # Insert EXIT log
         await insert_event_log({
             "id": str(uuid.uuid4()),
@@ -190,13 +236,14 @@ async def sweep_expired():
             "object_subtype": obj.get("object_subtype"),
             "timestamp": now_iso,
             "position": obj["positions"][-1] if obj["positions"] else None,
-            "confidence": avg_conf, # using avg conf for exit
-            "snapshot_path": obj.get("best_snapshot_path"), # Provide best snapshot at exit
+            "confidence": avg_conf,
+            "snapshot_path": obj.get("best_snapshot_path"),
             "duration_seconds": duration,
             "total_frames_seen": obj["total_frames"],
             "trajectory_summary": obj["positions"],
             "best_snapshot_path": obj.get("best_snapshot_path"),
             "best_confidence": obj["best_confidence"],
             "avg_confidence": avg_conf,
+            "clip_path": clip_path,
             "metadata": obj.get("metadata", {})
         })

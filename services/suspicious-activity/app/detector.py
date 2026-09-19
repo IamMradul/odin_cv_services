@@ -11,9 +11,6 @@ class SuspiciousActivityDetector:
         self.analyzer = BehaviorAnalyzer()
 
     def infer(self, frame: np.ndarray, source_id: str = "default"):
-        # We ignore source_id for now as state is global in the simple tracker,
-        # but in production, tracker state should be keyed by source_id.
-        
         tracked_persons = self.tracker.detect_and_track(frame)
         weapons = self.weapon_det.detect(frame)
         

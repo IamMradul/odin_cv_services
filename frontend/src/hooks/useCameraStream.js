@@ -124,6 +124,14 @@ function drawOverlays(ctx, dets, width, height) {
     dets.face.detections.forEach(d => drawBox(d.box, '#ff00ff', d.label || 'Face'));
   }
   if (dets.suspicious?.ok) {
-    dets.suspicious.detections.forEach(d => drawBox(d.box, '#ff0000', d.alert_type || 'Suspicious'));
+    dets.suspicious.detections.forEach(d => {
+      const color = d.severity === 'CRITICAL' ? '#ff0000'
+                  : d.severity === 'HIGH' ? '#ff8800'
+                  : '#ffff00';
+      const label = d.weapon_class
+        ? `${d.alert_type} [${d.weapon_class}] ${(d.confidence * 100).toFixed(0)}%`
+        : `${d.alert_type} ${(d.confidence * 100).toFixed(0)}%`;
+      drawBox(d.box, color, label);
+    });
   }
 }
