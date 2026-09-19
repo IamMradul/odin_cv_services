@@ -75,7 +75,17 @@ async def detect_faces(frame: UploadFile = File(...)):
         
     results = []
     for f in faces:
+        # L2-normalize the embedding for proper Cosine Similarity via Inner Product
+        norm = np.linalg.norm(f.embedding)
+        if norm > 0:
+            f.embedding = f.embedding / norm
+            
         classification = engine.classify_and_save(img, f.bbox, f.embedding)
+        
+        # Save FAISS index immediately so it survives hard reboots (startup.bat closes)
+        if classification.get("enrolled"):
+            embedding_index.save(INDEX_PATH, ID_MAP_PATH)
+            
         status = classification["status"]
         results.append(FaceDetectionOutput(
             box=f.bbox,

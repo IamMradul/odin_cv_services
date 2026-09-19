@@ -20,9 +20,39 @@ class Sighting:
     confidence: float
     snapshot_path: str
 
+class DummyRedis:
+    def __init__(self):
+        self.data = {}
+    def get(self, key):
+        return self.data.get(key)
+    def set(self, key, val):
+        self.data[key] = val
+    def sadd(self, key, val):
+        if key not in self.data: self.data[key] = set()
+        self.data[key].add(val)
+    def srem(self, key, val):
+        if key in self.data and val in self.data[key]:
+            self.data[key].remove(val)
+    def smembers(self, key):
+        return self.data.get(key, set())
+    def lpush(self, key, val):
+        if key not in self.data: self.data[key] = []
+        self.data[key].insert(0, val)
+    def lrange(self, key, start, end):
+        if key not in self.data: return []
+        if end == -1: return self.data[key][start:]
+        return self.data[key][start:end+1]
+    def delete(self, key):
+        if key in self.data: del self.data[key]
+
 class PersonRegistry:
     def __init__(self, redis_url: str):
-        self.r = redis.from_url(redis_url, decode_responses=True)
+        try:
+            self.r = redis.from_url(redis_url, decode_responses=True)
+            self.r.ping()
+        except redis.exceptions.ConnectionError:
+            print("Warning: Redis not found! Falling back to in-memory dictionary.")
+            self.r = DummyRedis()
 
     def _now(self):
         return datetime.now(timezone.utc).isoformat()
