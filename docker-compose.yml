@@ -28,3 +28,8 @@ services:
   alert-logging:
     build: ./services/alert-logging
     ports: ["8006:8006"]
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
