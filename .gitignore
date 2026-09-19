@@ -27,12 +27,8 @@ startup.bat
 # SSL certificates
 *.pem
 
-#data from face detection
-services/face-detection/data/snapshots/*
-services/face-detection/data/safe/*
-services/face-detection/data/suspicious/*
-services/face-detection/data/threat/*
-services/face-detection/data/undetected/*
-services/face-detection/data/unidentified/*
+#data from face detection and alert logging
+services/alert-logging/data
+services/face-detection/data
 
 Weapon-Detection-System/

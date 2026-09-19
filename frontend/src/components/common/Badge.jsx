@@ -13,6 +13,7 @@ const VARIANTS = {
   acknowledged: 'badge-acknowledged',
   investigating: 'badge-investigating',
   resolved: 'badge-resolved',
+  purple: 'badge-purple',
 };
 
 export const Badge = ({ variant = 'neutral', children, className = '', dot = false }) => {

@@ -97,7 +97,13 @@
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         canvas.toBlob(blob => {
           if (blob && myLoopId === loopId) {
-            blob.arrayBuffer().then(buf => { ws.send(buf); frameCount++; });
+            blob.arrayBuffer().then(buf => { 
+              // Backpressure: drop frames if the network buffer is congested (> ~1MB)
+              if (ws.bufferedAmount < 1000000) {
+                ws.send(buf); 
+                frameCount++; 
+              }
+            });
           }
         }, "image/jpeg", 0.8);
       }

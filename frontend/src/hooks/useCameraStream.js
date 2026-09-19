@@ -11,6 +11,8 @@ export const useCameraStream = (sourceId) => {
   const framesCount = useRef(0);
   const fpsInterval = useRef(null);
 
+  const isDrawing = useRef(false);
+
   // Keep ref in sync
   useEffect(() => {
     detectionsRef.current = detections;
@@ -52,23 +54,32 @@ export const useCameraStream = (sourceId) => {
         }
       } else {
         // Blob / ArrayBuffer (JPEG frame)
-        framesCount.current++;
-        const canvas = canvasRef.current;
-        if (canvas) {
-          const ctx = canvas.getContext('2d');
-          const blob = e.data;
-          const imageBitmap = await createImageBitmap(blob);
-          
-          if (canvas.width !== imageBitmap.width || canvas.height !== imageBitmap.height) {
-            canvas.width = imageBitmap.width;
-            canvas.height = imageBitmap.height;
+        if (isDrawing.current) return; // Drop frame if viewer is busy to prevent accumulated lag
+        isDrawing.current = true;
+        
+        try {
+          framesCount.current++;
+          const canvas = canvasRef.current;
+          if (canvas) {
+            const ctx = canvas.getContext('2d');
+            const blob = e.data;
+            const imageBitmap = await createImageBitmap(blob);
+            
+            if (canvas.width !== imageBitmap.width || canvas.height !== imageBitmap.height) {
+              canvas.width = imageBitmap.width;
+              canvas.height = imageBitmap.height;
+            }
+            
+            // Draw the image onto the canvas, stretching to fit
+            ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
+            
+            // Draw detections using the latest ref
+            drawOverlays(ctx, detectionsRef.current, canvas.width, canvas.height);
           }
-          
-          // Draw the image onto the canvas, stretching to fit
-          ctx.drawImage(imageBitmap, 0, 0, canvas.width, canvas.height);
-          
-          // Draw detections using the latest ref
-          drawOverlays(ctx, detectionsRef.current, canvas.width, canvas.height);
+        } catch (err) {
+          console.error('Error drawing frame', err);
+        } finally {
+          isDrawing.current = false;
         }
       }
     };
@@ -93,8 +104,12 @@ export const useCameraStream = (sourceId) => {
 function drawOverlays(ctx, dets, width, height) {
   if (!dets) return;
   
-  ctx.lineWidth = 2;
-  ctx.font = '14px sans-serif';
+  // Scale font size dynamically based on the resolution (e.g. 1080p -> ~30px)
+  const fontSize = Math.max(16, Math.round(height / 35));
+  const boxHeight = fontSize + 10;
+  
+  ctx.lineWidth = Math.max(2, Math.round(width / 400));
+  ctx.font = `bold ${fontSize}px sans-serif`;
 
   const drawBox = (box, color, label) => {
     if (!box || box.length !== 4) return;
@@ -108,10 +123,16 @@ function drawOverlays(ctx, dets, width, height) {
     ctx.strokeStyle = color;
     ctx.strokeRect(x, y, w, h);
     
+    // Draw label above the box (or inside if too close to the top)
+    const labelY = y - boxHeight < 0 ? y : y - boxHeight;
+    const textY = y - boxHeight < 0 ? y + fontSize + 2 : y - 6;
+
     ctx.fillStyle = color;
-    ctx.fillRect(x, y - 20, ctx.measureText(label).width + 10, 20);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(label, x + 5, y - 5);
+    ctx.fillRect(x, labelY, ctx.measureText(label).width + 12, boxHeight);
+    
+    // Use black text on bright backgrounds for better contrast
+    ctx.fillStyle = (color === '#ffffff' || color === '#ffff00' || color === '#00ff00') ? '#000' : '#fff';
+    ctx.fillText(label, x + 6, textY);
   };
 
   if (dets.human?.ok) {
@@ -121,7 +142,16 @@ function drawOverlays(ctx, dets, width, height) {
     dets.vehicle.detections.forEach(d => drawBox(d.box, '#0088ff', d.label || 'Vehicle'));
   }
   if (dets.face?.ok) {
-    dets.face.detections.forEach(d => drawBox(d.box, '#ff00ff', d.label || 'Face'));
+    dets.face.detections.forEach(d => {
+      const statusStr = (d.status || d.label || '').toLowerCase();
+      let color = '#ffffff'; // white for undefined
+      if (statusStr.includes('safe')) {
+        color = '#00ff00'; // green for safe
+      } else if (statusStr.includes('threat')) {
+        color = '#ff0000'; // red for threat
+      }
+      drawBox(d.box, color, d.label || 'Face');
+    });
   }
   if (dets.suspicious?.ok) {
     dets.suspicious.detections.forEach(d => {

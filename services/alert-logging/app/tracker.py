@@ -2,6 +2,7 @@ import time
 import uuid
 import json
 import os
+import hashlib
 import cv2
 import numpy as np
 import asyncio
@@ -11,6 +12,16 @@ from .database import insert_event_log, insert_object_alert, update_retroactive_
 
 # In-memory store: {(source_id, track_id): ActiveObjectDict}
 active_objects = {}
+
+LOGS_JSON_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "data", "all_logs.json"))
+
+def append_json_log(log_data):
+    try:
+        os.makedirs(os.path.dirname(LOGS_JSON_PATH), exist_ok=True)
+        with open(LOGS_JSON_PATH, "a") as f:
+            f.write(json.dumps(log_data) + "\n")
+    except Exception as e:
+        print(f"Failed to write json log: {e}")
 
 def get_center(box):
     x1, y1, x2, y2 = box
@@ -83,6 +94,9 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
         res = detections.get(service_name)
         if res and res.get("ok"):
             for d in res.get("detections", []):
+                if d.get("track_id") is None and service_name == "face":
+                    pid = d.get("person_id", str(uuid.uuid4()))
+                    d["track_id"] = int(hashlib.md5(pid.encode()).hexdigest(), 16) % 1000000
                 if d.get("track_id") is not None:
                     tracked_items.append({**d, "object_type": service_name})
 
@@ -101,13 +115,16 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
             
             metadata = {}
             if item.get("label"): metadata["label"] = item["label"]
+            if item.get("status"): metadata["status"] = item["status"]
+            
+            subtype = item.get("label") or item.get("status")
             
             obj_data = {
                 "object_id": obj_id,
                 "source_id": source_id,
                 "track_id": track_id,
                 "object_type": item["object_type"],
-                "object_subtype": item.get("label"),
+                "object_subtype": subtype,
                 "first_seen_at": current_time,
                 "last_seen_at": current_time,
                 "total_frames": 1,
@@ -118,11 +135,12 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                 "best_box": item["box"],
                 "metadata": metadata,
                 "global_id": item.get("person_id") or item.get("plate_text"),
-                "frames": [frame_bytes] # Buffer frames for the clip
+                "frames": [frame_bytes], # Buffer frames for the clip
+                "alerted_types": set()
             }
             active_objects[key] = obj_data
             
-            await insert_event_log({
+            log_entry = {
                 "id": str(uuid.uuid4()),
                 "object_id": obj_id,
                 "event_type": "ENTRY",
@@ -136,7 +154,9 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                 "confidence": conf,
                 "snapshot_path": snap_path,
                 "metadata": obj_data["metadata"]
-            })
+            }
+            await insert_event_log(log_entry)
+            await asyncio.to_thread(append_json_log, {"table": "event_logs", "data": log_entry})
             
         else:
             # UPDATE EXISTING OBJECT
@@ -170,16 +190,40 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
     susp = detections.get("suspicious")
     if susp and susp.get("ok"):
         for alert in susp.get("detections", []):
-            if alert.get("alert_type") and alert.get("track_id") is not None:
-                alert_track_id = alert["track_id"]
+            if alert.get("alert_type"):
+                alert_track_id = alert.get("track_id")
+                if alert_track_id is None:
+                    key_str = alert.get("alert_type") + str(current_time)
+                    alert_track_id = int(hashlib.md5(key_str.encode()).hexdigest(), 16) % 1000000
+                    
                 key = (source_id, alert_track_id)
-                obj_id = None
-                recent_frames = [frame_bytes]
                 
-                if key in active_objects:
-                    obj_id = active_objects[key]["object_id"]
-                    # Grab up to the last 150 frames (~5-10 seconds) for the alert clip
-                    recent_frames = active_objects[key]["frames"][-150:]
+                if key not in active_objects:
+                    active_objects[key] = {
+                        "object_id": f"{source_id}_trk{alert_track_id}_{int(current_time)}",
+                        "source_id": source_id,
+                        "track_id": alert_track_id,
+                        "object_type": "human",
+                        "object_subtype": "Unknown",
+                        "first_seen_at": current_time,
+                        "last_seen_at": current_time,
+                        "total_frames": 1,
+                        "positions": [get_center(alert.get("box", [0,0,0,0]))],
+                        "best_confidence": alert.get("confidence", 1.0),
+                        "confidence_sum": alert.get("confidence", 1.0),
+                        "best_box": alert.get("box", [0,0,0,0]),
+                        "metadata": {},
+                        "global_id": None,
+                        "frames": [frame_bytes],
+                        "alerted_types": set()
+                    }
+                    
+                if alert["alert_type"] in active_objects[key].get("alerted_types", set()):
+                    continue
+                active_objects[key].setdefault("alerted_types", set()).add(alert["alert_type"])
+                
+                obj_id = active_objects[key]["object_id"]
+                recent_frames = active_objects[key]["frames"][-150:]
                 
                 if obj_id:
                     alert_uuid = uuid.uuid4().hex[:8]
@@ -189,7 +233,7 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                     alert_snap_path = await asyncio.to_thread(save_snapshot, frame_bytes, alert["box"], alert_snap_id)
                     alert_clip_path = await create_clip(recent_frames, alert_clip_id)
                     
-                    await insert_object_alert({
+                    alert_entry = {
                         "id": str(uuid.uuid4()),
                         "object_id": obj_id,
                         "alert_type": alert["alert_type"],
@@ -199,7 +243,53 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
                         "snapshot_path": alert_snap_path,
                         "clip_path": alert_clip_path,
                         "details": alert.get("details", f"Alert triggered for track {alert_track_id}")
-                    })
+                    }
+                    await insert_object_alert(alert_entry)
+                    await asyncio.to_thread(append_json_log, {"table": "object_alerts", "data": alert_entry})
+
+    # Process Alerts (from face service)
+    face_res = detections.get("face")
+    if face_res and face_res.get("ok"):
+        for f in face_res.get("detections", []):
+            status = f.get("status")
+            if status in ["unidentified", "threat", "safe"] and f.get("track_id") is not None:
+                alert_track_id = f["track_id"]
+                key = (source_id, alert_track_id)
+                obj_id = None
+                recent_frames = [frame_bytes]
+                
+                alert_type = f"FACE_{status.upper()}"
+                
+                if key in active_objects:
+                    if alert_type in active_objects[key].get("alerted_types", set()):
+                        continue
+                    active_objects[key].setdefault("alerted_types", set()).add(alert_type)
+                    obj_id = active_objects[key]["object_id"]
+                    recent_frames = active_objects[key]["frames"][-150:]
+                
+                if obj_id:
+                    alert_uuid = uuid.uuid4().hex[:8]
+                    alert_snap_id = f"alert_{alert_uuid}"
+                    alert_clip_id = f"alert_clip_{alert_uuid}"
+                    
+                    alert_snap_path = await asyncio.to_thread(save_snapshot, frame_bytes, f["box"], alert_snap_id)
+                    alert_clip_path = await create_clip(recent_frames, alert_clip_id)
+                    
+                    severity = "Info" if status == "safe" else "Critical"
+                    
+                    alert_entry = {
+                        "id": str(uuid.uuid4()),
+                        "object_id": obj_id,
+                        "alert_type": alert_type,
+                        "severity": severity,
+                        "confidence": f.get("confidence", 1.0),
+                        "timestamp": now_iso,
+                        "snapshot_path": alert_snap_path,
+                        "clip_path": alert_clip_path,
+                        "details": f"Face match: {status} (Person ID: {f.get('person_id', 'Unknown')})"
+                    }
+                    await insert_object_alert(alert_entry)
+                    await asyncio.to_thread(append_json_log, {"table": "object_alerts", "data": alert_entry})
 
 
 async def sweep_expired():
@@ -224,8 +314,7 @@ async def sweep_expired():
         # Free up memory (frames list can be large)
         del obj["frames"]
         
-        # Insert EXIT log
-        await insert_event_log({
+        log_entry = {
             "id": str(uuid.uuid4()),
             "object_id": obj["object_id"],
             "event_type": "EXIT",
@@ -246,4 +335,6 @@ async def sweep_expired():
             "avg_confidence": avg_conf,
             "clip_path": clip_path,
             "metadata": obj.get("metadata", {})
-        })
+        }
+        await insert_event_log(log_entry)
+        await asyncio.to_thread(append_json_log, {"table": "event_logs", "data": log_entry})

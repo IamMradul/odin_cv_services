@@ -1,13 +1,16 @@
 import React from 'react';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { Badge } from '../common/Badge';
-import { MOCK_ALERTS } from '../../data/mockData';
+import { useAlerts } from '../../hooks/useAlerts';
 import { useNavigate } from 'react-router-dom';
 import './dashboard.css';
 
 export const PriorityEventPanel = () => {
   const navigate = useNavigate();
-  const topAlert = MOCK_ALERTS.filter(a => a.severity === 'Critical' && a.status !== 'Resolved')[0];
+  const { alerts, isLoading } = useAlerts({ severity: 'critical' });
+  const topAlert = alerts.filter(a => a.status !== 'Resolved')[0];
+
+  if (isLoading) return <div className="p-4">Loading alerts...</div>;
 
   if (!topAlert) return (
     <div className="priority-event-panel empty">
@@ -23,15 +26,13 @@ export const PriorityEventPanel = () => {
         <div className="pep-header">
           <AlertTriangle size={16} className="text-critical" />
           <span className="pep-label">Highest Priority Event</span>
-          <Badge variant="critical" dot>{topAlert.severity}</Badge>
+          <Badge variant="critical" dot>{topAlert.severity || 'Critical'}</Badge>
         </div>
-        <p className="pep-event">{topAlert.event}</p>
+        <p className="pep-event">{topAlert.alert_type}</p>
         <div className="pep-meta">
-          <span>{topAlert.camera}</span>
+          <span>{topAlert.source_id}</span>
           <span>·</span>
-          <span>{topAlert.location}</span>
-          <span>·</span>
-          <span className="font-mono">{topAlert.time}</span>
+          <span className="font-mono">{new Date(topAlert.timestamp).toLocaleTimeString()}</span>
         </div>
       </div>
       <button

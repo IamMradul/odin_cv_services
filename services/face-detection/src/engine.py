@@ -7,7 +7,7 @@ from typing import Dict, Any
 from src.faiss_index import EmbeddingIndex
 from src.registry import PersonRegistry
 
-HIGH_CONF = 0.55
+HIGH_CONF = 0.40
 
 class ClassificationEngine:
     def __init__(self, index: EmbeddingIndex, registry: PersonRegistry):

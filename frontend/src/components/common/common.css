@@ -25,6 +25,7 @@
 .badge-critical    { background: var(--critical-light);   color: var(--critical-color);   border: 1px solid var(--critical-border); }
 .badge-warning     { background: var(--warning-light);    color: var(--warning-color);    border: 1px solid var(--warning-border); }
 .badge-info        { background: var(--info-light);       color: var(--info-color);       border: 1px solid var(--info-border); }
+.badge-purple      { background: rgba(192, 132, 252, 0.15); color: #c084fc;               border: 1px solid rgba(192, 132, 252, 0.3); }
 .badge-processing  { background: var(--processing-light); color: var(--processing-color); border: 1px solid rgba(139,92,246,0.3); }
 .badge-offline     { background: rgba(100,116,139,0.12);  color: #64748B;                 border: 1px solid rgba(100,116,139,0.25); }
 .badge-neutral     { background: var(--surface-elevated); color: var(--text-secondary);   border: 1px solid var(--border-color); }

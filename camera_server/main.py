@@ -10,7 +10,7 @@ app = FastAPI(title="camera-server")
 STATIC_DIR = Path(__file__).parent / "static"
 
 GATEWAY_URL = "http://localhost:9000/process-frame"
-DETECT_EVERY_N_FRAMES = 5
+DETECT_EVERY_N_FRAMES = 10 # Run inference less frequently to prevent GPU bottleneck
 
 viewers: dict[str, list[WebSocket]] = {}
 frame_counters: dict[str, int] = {}
@@ -35,17 +35,21 @@ async def viewer_page():
     return FileResponse(STATIC_DIR / "viewer.html")
 
 async def broadcast(source_id: str, message, binary: bool):
-    dead = []
-    for viewer_ws in viewers.get(source_id, []):
+    def _handle_result(task, ws):
         try:
-            if binary:
-                await viewer_ws.send_bytes(message)
-            else:
-                await viewer_ws.send_text(json.dumps(message))
+            task.result()
         except Exception:
-            dead.append(viewer_ws)
-    for d in dead:
-        viewers[source_id].remove(d)
+            if ws in viewers.get(source_id, []):
+                viewers[source_id].remove(ws)
+
+    for viewer_ws in viewers.get(source_id, []):
+        async def _send(ws=viewer_ws):
+            if binary:
+                await ws.send_bytes(message)
+            else:
+                await ws.send_text(json.dumps(message))
+        task = asyncio.create_task(_send())
+        task.add_done_callback(lambda t, ws=viewer_ws: _handle_result(t, ws))
 
 async def run_detection(source_id: str, frame_bytes: bytes):
     detection_in_flight[source_id] = True
