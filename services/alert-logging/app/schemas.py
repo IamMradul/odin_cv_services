@@ -43,6 +43,7 @@ class EventLogResponse(BaseModel):
     best_snapshot_path: Optional[str]
     best_confidence: Optional[float]
     avg_confidence: Optional[float]
+    clip_path: Optional[str]
     metadata: Dict[str, Any]
     created_at: str
 
@@ -54,6 +55,7 @@ class AlertResponse(BaseModel):
     confidence: float
     timestamp: str
     snapshot_path: str
+    clip_path: Optional[str]
     details: str
     acknowledged: bool
     false_positive: bool

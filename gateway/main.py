@@ -140,6 +140,7 @@ async def get_all_health():
         {"name": "Vehicle Detection", "url": "http://127.0.0.1:8002/health"},
         {"name": "Face Recognition", "url": "http://127.0.0.1:8003/health"},
         {"name": "ANPR Engine", "url": "http://127.0.0.1:8004/health"},
+        {"name": "Suspicious Activity", "url": "http://127.0.0.1:8005/health"},
         {"name": "Alert Logging", "url": "http://127.0.0.1:8006/health"},
         {"name": "Camera Server", "url": "https://127.0.0.1:8000/viewer"}, # Rough check
     ]
