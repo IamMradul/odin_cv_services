@@ -32,3 +32,5 @@ services/alert-logging/data
 services/face-detection/data/unidentified
 
 Weapon-Detection-System/
+
+log-inference/.env
