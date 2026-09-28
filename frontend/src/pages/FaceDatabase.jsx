@@ -53,7 +53,7 @@ const FaceDatabase = () => {
         />
       ) : (
         <FaceGrid>
-          {faces.map(person => (
+          {faces.filter(f => f.status !== 'unidentified').map(person => (
             <FaceCard
               key={person.id}
               person={person}

@@ -12,6 +12,9 @@ class Person:
     created_at: str
     last_seen: str
     sighting_count: int
+    name: Optional[str] = None
+    contact: Optional[str] = None
+    notes: Optional[str] = None
 
 @dataclass
 class Sighting:
@@ -57,7 +60,7 @@ class PersonRegistry:
     def _now(self):
         return datetime.now(timezone.utc).isoformat()
 
-    def create(self, person_id: str, status: str = "unidentified") -> Person:
+    def create(self, person_id: str, status: str = "unidentified", name: Optional[str] = None, contact: Optional[str] = None, notes: Optional[str] = None) -> Person:
         now = self._now()
         person = Person(
             id=person_id,
@@ -65,7 +68,10 @@ class PersonRegistry:
             case_ref_id=None,
             created_at=now,
             last_seen=now,
-            sighting_count=0
+            sighting_count=0,
+            name=name,
+            contact=contact,
+            notes=notes
         )
         self.r.set(f"person:{person_id}", json.dumps(asdict(person)))
         self.r.sadd("persons:all", person_id)

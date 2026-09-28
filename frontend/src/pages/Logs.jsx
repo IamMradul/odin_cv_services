@@ -21,7 +21,8 @@ const Logs = () => {
       if (isFetching.current) return;
       isFetching.current = true;
       try {
-        const url = `${LOGGING_API}/logs?limit=100${lastTimestamp.current ? `&since=${encodeURIComponent(lastTimestamp.current)}` : ''}`;
+        // Fetch the latest 100 logs every time to catch retroactive backend updates (e.g. face identified after entry)
+        const url = `${LOGGING_API}/logs?limit=100`;
         const response = await fetch(url);
         if (!response.ok) throw new Error('Failed to fetch logs');
         
@@ -59,21 +60,17 @@ const Logs = () => {
           });
 
           setLogs(prev => {
-            const existingIds = new Set(prev.map(l => l.id));
-            const uniqueNewLogs = formattedLogs.filter(l => !existingIds.has(l.id));
+            const prevMap = new Map(prev.map(l => [l.id, l]));
+            formattedLogs.forEach(log => {
+              prevMap.set(log.id, log); // Overwrite existing with potentially updated data, or add new
+            });
             
-            if (uniqueNewLogs.length === 0) return prev;
-            
-            const combined = [...uniqueNewLogs, ...prev];
+            const combined = Array.from(prevMap.values());
             // Sort combined again just in case
             combined.sort((a, b) => new Date(b.rawTimestamp) - new Date(a.rawTimestamp));
             // Keep at most 500 logs in memory
             return combined.slice(0, 500);
           });
-          
-          // Update the lastTimestamp to the newest log we just fetched
-          const maxTime = newLogs.reduce((max, log) => (max === '' || log.timestamp > max) ? log.timestamp : max, lastTimestamp.current);
-          lastTimestamp.current = maxTime;
         }
       } catch (err) {
         console.error('Error fetching logs:', err);

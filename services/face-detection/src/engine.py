@@ -7,7 +7,7 @@ from typing import Dict, Any
 from src.faiss_index import EmbeddingIndex
 from src.registry import PersonRegistry
 
-HIGH_CONF = 0.40
+HIGH_CONF = 0.15
 
 class ClassificationEngine:
     def __init__(self, index: EmbeddingIndex, registry: PersonRegistry):
@@ -28,9 +28,7 @@ class ClassificationEngine:
         
         if is_match:
             status = person.status
-            # Map status to folder
-            folder = status if status in ["safe", "threat", "unidentified"] else "unidentified"
-            snapshot_path = f"data/{folder}/{snap_id}.jpg"
+            snapshot_path = f"data/{status}/{snap_id}.jpg"
             
             # Log sighting
             self.registry.log_sighting(person_id, "api_upload", score, snapshot_path)

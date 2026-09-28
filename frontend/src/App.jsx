@@ -13,6 +13,7 @@ import FootageDatabase from './pages/FootageDatabase';
 import Reports from './pages/Reports';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
+import Intelligence from './pages/Intelligence';
 import NotFound from './pages/NotFound';
 
 // Styles
@@ -35,6 +36,7 @@ function App() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/logs" element={<Logs />} />
+            <Route path="/intelligence" element={<Intelligence />} />
 
             {/* Sub-pages (stubs that display within layout) */}
             <Route path="/faces/:faceId" element={<FaceDatabase />} />

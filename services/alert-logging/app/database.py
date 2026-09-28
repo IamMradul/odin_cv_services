@@ -95,13 +95,20 @@ async def insert_event_log(log_data: dict):
         ))
         await db.commit()
 
-async def update_retroactive_global_id(object_id: str, global_id: str):
+async def update_retroactive_global_id(object_id: str, global_id: str, subtype: str = None, metadata: dict = None):
     async with aiosqlite.connect(DB_PATH) as db:
-        await db.execute('''
-            UPDATE event_logs 
-            SET global_id = ? 
-            WHERE object_id = ? AND event_type = 'ENTRY'
-        ''', (global_id, object_id))
+        if subtype and metadata:
+            await db.execute('''
+                UPDATE event_logs 
+                SET global_id = ?, object_subtype = ?, metadata = ?
+                WHERE object_id = ? AND event_type = 'ENTRY'
+            ''', (global_id, subtype, json.dumps(metadata), object_id))
+        else:
+            await db.execute('''
+                UPDATE event_logs 
+                SET global_id = ? 
+                WHERE object_id = ? AND event_type = 'ENTRY'
+            ''', (global_id, object_id))
         await db.commit()
 
 async def insert_object_alert(alert_data: dict):

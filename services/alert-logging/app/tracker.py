@@ -166,12 +166,25 @@ async def process_frame(source_id: str, detections: dict, frame_bytes: bytes):
             obj["confidence_sum"] += conf
             obj["frames"].append(frame_bytes)
             
-            # Update global_id if we didn't have one and just found it
+            # Update global_id or subtype if they were just discovered/changed
             new_global_id = item.get("person_id") or item.get("plate_text")
-            if new_global_id and not obj["global_id"]:
+            new_subtype = item.get("label") or item.get("status")
+            
+            needs_db_update = False
+            
+            if new_global_id and obj.get("global_id") != new_global_id:
                 obj["global_id"] = new_global_id
+                needs_db_update = True
+                
+            if new_subtype and obj.get("object_subtype") != new_subtype:
+                obj["object_subtype"] = new_subtype
+                if item.get("label"): obj.setdefault("metadata", {})["label"] = item["label"]
+                if item.get("status"): obj.setdefault("metadata", {})["status"] = item["status"]
+                needs_db_update = True
+                
+            if needs_db_update:
                 # Retroactively update the ENTRY log
-                await update_retroactive_global_id(obj["object_id"], new_global_id)
+                await update_retroactive_global_id(obj["object_id"], obj.get("global_id"), obj.get("object_subtype"), obj.get("metadata", {}))
             
             if obj["total_frames"] % TRAJECTORY_SAMPLE_INTERVAL == 0:
                 pos["t"] = int(current_time - obj["first_seen_at"])

@@ -7,20 +7,22 @@
 
 .settings-layout {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 240px 1fr;
   gap: var(--space-6);
   align-items: start;
 }
 
 /* ─── Settings Sidebar ────────────────────────────────────────── */
 .settings-sidebar {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
-  padding: var(--space-2);
+  padding: var(--space-3);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   position: sticky;
   top: var(--space-6);
 }
@@ -29,7 +31,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: 9px var(--space-3);
+  padding: 10px var(--space-4);
   border-radius: var(--radius-button);
   background: transparent;
   border: none;
@@ -43,37 +45,41 @@
 }
 
 .settings-nav-item:hover {
-  background: var(--surface-elevated);
+  background: rgba(255,255,255,0.05);
   color: var(--text-primary);
 }
 
 .settings-nav-item.active {
-  background: var(--accent-light);
+  background: rgba(220, 38, 38, 0.1);
   color: var(--accent-color);
   font-weight: 600;
 }
 
 /* ─── Settings Content Area ───────────────────────────────────── */
 .settings-content-area {
-  background: var(--surface-color);
-  border: 1px solid var(--border-color);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-card);
   padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
 }
 
 .settings-group {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .settings-section-title {
-  font-size: var(--font-md);
+  font-size: var(--font-lg);
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: var(--space-4);
-  padding-bottom: var(--space-4);
+  margin-bottom: var(--space-5);
+  padding-bottom: var(--space-3);
   border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: -0.01em;
 }
 
 /* ─── Setting Row ─────────────────────────────────────────────── */
@@ -95,13 +101,13 @@
 .setting-info {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 4px;
   flex: 1;
 }
 
 .setting-label {
   font-size: var(--font-sm);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-primary);
 }
 
@@ -114,11 +120,14 @@
 .setting-permission-badge {
   font-size: 10px;
   color: var(--warning-color);
-  background: var(--warning-light);
-  padding: 2px 8px;
+  background: rgba(245, 158, 11, 0.1);
+  padding: 3px 8px;
   border-radius: var(--radius-badge);
   border: 1px solid var(--warning-border);
   width: fit-content;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
 }
 
 .setting-control {
@@ -129,13 +138,13 @@
 
 /* ─── Toggle Switch ───────────────────────────────────────────── */
 .toggle-switch {
-  width: 44px;
-  height: 24px;
-  background: var(--surface-elevated);
-  border: 1px solid var(--border-color);
+  width: 48px;
+  height: 26px;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-full);
   cursor: pointer;
-  transition: background var(--transition-base), border-color var(--transition-base);
+  transition: all var(--transition-base);
   position: relative;
   display: flex;
   align-items: center;
@@ -144,7 +153,8 @@
 
 .toggle-switch.on {
   background: var(--accent-color);
-  border-color: var(--accent-color);
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.3);
 }
 
 .toggle-switch:disabled {
@@ -153,8 +163,8 @@
 }
 
 .toggle-thumb {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   background: var(--text-muted);
   border-radius: 50%;
   transition: transform var(--transition-base), background var(--transition-base);
@@ -162,6 +172,6 @@
 }
 
 .toggle-switch.on .toggle-thumb {
-  transform: translateX(20px);
+  transform: translateX(22px);
   background: #fff;
 }

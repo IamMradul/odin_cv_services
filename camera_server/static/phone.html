@@ -34,7 +34,8 @@
   </div>
 
   <script>
-    const SOURCE_ID = "cam1";
+    const urlParams = new URLSearchParams(window.location.search);
+    const SOURCE_ID = urlParams.get('id') || "cam1";
     let facingMode = "environment";
     let stream = null;
     let ws = null;
@@ -52,7 +53,8 @@
 
     function connectWS() {
       if (ws) { ws.onclose = null; ws.close(); }   // explicitly close any previous socket, no dangling connections
-      const wsUrl = `wss://${location.host}/ws/publish/${SOURCE_ID}`;
+      const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${location.host}/ws/publish/${SOURCE_ID}`;
       ws = new WebSocket(wsUrl);
       ws.binaryType = "arraybuffer";
       ws.onopen = () => statusEl.textContent = "connected";

@@ -1,47 +1,50 @@
 :root {
   /* ─── Background & Surface ─────────────────────────────── */
-  --bg-color: #F3F4F6;
-  --bg-secondary: #E5E7EB;
-  --surface-color: #FFFFFF;
-  --surface-elevated: #F9FAFB;
-  --surface-hover: #F3F4F6;
+  --bg-color: #080808;
+  --bg-secondary: #111111;
+  --surface-color: #161616;
+  --surface-elevated: #1e1e1e;
+  --surface-hover: #262626;
 
   /* ─── Borders ───────────────────────────────────────────── */
-  --border-color: #D1D5DB;
-  --border-subtle: #E5E7EB;
-  --border-focus: rgba(234, 88, 12, 0.5);
+  --border-color: rgba(255, 255, 255, 0.1);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-focus: rgba(220, 38, 38, 0.5);
 
   /* ─── Text ──────────────────────────────────────────────── */
-  --text-primary: #111827;
-  --text-secondary: #374151;
-  --text-muted: #6B7280;
-  --text-inverse: #FFFFFF;
+  --text-primary: #f5f5f5;
+  --text-secondary: #a3a3a3;
+  --text-muted: #737373;
+  --text-inverse: #171717;
 
-  /* ─── Brand Accent ──────────────────────────────────────── */
-  --accent-color: #EA580C; /* Burnt Orange */
-  --accent-hover: #C2410C;
-  --accent-light: rgba(234, 88, 12, 0.12);
-  --accent-glow: 0 0 20px rgba(234, 88, 12, 0.25);
+  /* ─── Brand Accent (Crimson Red) ────────────────────────── */
+  --accent-color: #dc2626;
+  --accent-hover: #ef4444;
+  --accent-light: rgba(220, 38, 38, 0.15);
+  --accent-glow: 0 0 20px rgba(220, 38, 38, 0.4);
+  --accent-border: rgba(220, 38, 38, 0.4);
 
   /* ─── Semantic Colors ───────────────────────────────────── */
-  --critical-color: #EF4444; /* Red */
-  --critical-light: rgba(239, 68, 68, 0.12);
+  --critical-color: #ef4444;
+  --critical-light: rgba(239, 68, 68, 0.15);
   --critical-border: rgba(239, 68, 68, 0.3);
+  --critical-glow: 0 0 15px rgba(239, 68, 68, 0.3);
 
-  --warning-color: #F59E0B;
-  --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-color: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.15);
   --warning-border: rgba(245, 158, 11, 0.3);
 
-  --success-color: #22C55E; /* Green */
-  --success-light: rgba(34, 197, 94, 0.12);
-  --success-border: rgba(34, 197, 94, 0.3);
+  --success-color: #10b981;
+  --success-light: rgba(16, 185, 129, 0.15);
+  --success-border: rgba(16, 185, 129, 0.3);
+  --success-glow: 0 0 15px rgba(16, 185, 129, 0.25);
 
-  --info-color: #3B82F6;
-  --info-light: rgba(59, 130, 246, 0.12);
+  --info-color: #3b82f6;
+  --info-light: rgba(59, 130, 246, 0.15);
   --info-border: rgba(59, 130, 246, 0.3);
 
-  --processing-color: #8B5CF6;
-  --processing-light: rgba(139, 92, 246, 0.12);
+  --processing-color: #8b5cf6;
+  --processing-light: rgba(139, 92, 246, 0.15);
 
   /* ─── Typography ────────────────────────────────────────── */
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
@@ -49,47 +52,88 @@
 
   --font-xs:   11px;
   --font-sm:   13px;
-  --font-base: 14px;
-  --font-md:   15px;
-  --font-lg:   18px;
-  --font-xl:   22px;
-  --font-2xl:  28px;
-  --font-3xl:  36px;
+  --font-base: 15px; /* Increased from 14px */
+  --font-md:   16px; /* Increased from 15px */
+  --font-lg:   20px; /* Increased from 18px */
+  --font-xl:   24px;
+  --font-2xl:  32px; /* Increased from 28px */
+  --font-3xl:  42px; /* Increased from 36px */
 
   /* ─── Spacing ───────────────────────────────────────────── */
   --space-1:  4px;
   --space-2:  8px;
   --space-3:  12px;
   --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-8:  48px;
+  --space-10: 64px;
+  --space-12: 80px;
+  --space-16: 128px;
 
   /* ─── Border Radius ─────────────────────────────────────── */
   --radius-sm:     4px;
   --radius-badge:  6px;
   --radius-input:  8px;
-  --radius-button: 10px;
-  --radius-card:   12px;
-  --radius-panel:  16px;
-  --radius-lg:     20px;
+  --radius-button: 8px;
+  --radius-card:   16px; /* More rounded like reference */
+  --radius-panel:  20px;
+  --radius-lg:     24px;
   --radius-full:   9999px;
 
-  /* ─── Shadows ───────────────────────────────────────────── */
-  --shadow-sm:  0 1px 2px rgba(0,0,0,0.05);
-  --shadow-md:  0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-  --shadow-lg:  0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
-  --shadow-xl:  0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+  /* ─── Shadows & Glassmorphism ───────────────────────────── */
+  --shadow-sm:  0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md:  0 8px 16px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.3);
+  --shadow-lg:  0 16px 32px rgba(0,0,0,0.6), 0 4px 8px rgba(0,0,0,0.4);
+  --shadow-xl:  0 24px 48px rgba(0,0,0,0.8), 0 10px 20px rgba(0,0,0,0.5);
+  
+  --glass-bg: rgba(22, 22, 22, 0.6);
+  --glass-border: rgba(255, 255, 255, 0.08);
 
   /* ─── Transitions ───────────────────────────────────────── */
-  --transition-fast:   0.12s ease;
-  --transition-base:   0.2s ease;
-  --transition-slow:   0.35s ease;
+  --transition-fast:   0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base:   0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow:   0.5s cubic-bezier(0.4, 0, 0.2, 1);
 
-  /* ─── Sidebar ───────────────────────────────────────────── */
-  --sidebar-width: 220px;
-  --header-height: 56px;
+  /* ─── Layout ───────────────────────────────────────────── */
+  --sidebar-width: 260px;
+  --header-height: 64px;
+}
+
+/* ─── Light Theme Overrides ─────────────────────────────── */
+[data-theme="light"] {
+  /* Background & Surface */
+  --bg-color: #fafafa;
+  --bg-secondary: #f4f4f5;
+  --surface-color: #ffffff;
+  --surface-elevated: #f4f4f5;
+  --surface-hover: #e4e4e7;
+
+  /* Borders */
+  --border-color: rgba(0, 0, 0, 0.1);
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-focus: rgba(220, 38, 38, 0.4);
+
+  /* Text */
+  --text-primary: #171717;
+  --text-secondary: #52525b;
+  --text-muted: #a1a1aa;
+  --text-inverse: #ffffff;
+
+  /* Accent adjustments for light mode */
+  --accent-color: #dc2626;
+  --accent-hover: #b91c1c;
+  --accent-light: rgba(220, 38, 38, 0.1);
+  --accent-glow: 0 4px 12px rgba(220, 38, 38, 0.2);
+  --accent-border: rgba(220, 38, 38, 0.3);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  /* Shadows */
+  --shadow-sm:  0 2px 4px rgba(0,0,0,0.05);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg:  0 12px 24px rgba(0,0,0,0.1);
+  --shadow-xl:  0 24px 48px rgba(0,0,0,0.12);
 }

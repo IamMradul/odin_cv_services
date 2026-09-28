@@ -19,15 +19,38 @@ const PRIVACY_LABEL = {
 };
 
 export const FaceCard = ({ person, onView, onOsint }) => {
+  const [imgError, setImgError] = React.useState(false);
+  
+  const [now, setNow] = React.useState(Date.now());
+  
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  // Consider "LIVE MATCH" if seen within the last 5 seconds
+  const isLive = person.lastSeen && (now - new Date(person.lastSeen).getTime() < 5000);
+
   return (
     <div className="face-card">
       <div className="face-avatar-container">
+        {isLive && <div className="live-indicator">LIVE MATCH</div>}
         <div className="face-avatar">
-          <User size={36} />
+          {person.imageUrl && !imgError ? (
+            <img 
+              src={person.imageUrl} 
+              alt={person.name} 
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <User size={36} />
+          )}
         </div>
         <div className="face-privacy-label">
           {PRIVACY_LABEL[person.status] || 'Detection Event'}
         </div>
+        <div className="cyber-scanline"></div>
       </div>
 
       <div className="face-info">

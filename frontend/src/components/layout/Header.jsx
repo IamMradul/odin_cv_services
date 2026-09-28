@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, User, ChevronDown, Shield, Menu, Eye } from 'lucide-react';
+import { Bell, User, ChevronDown, Shield, Menu, Eye, Moon, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { MOCK_ALERTS } from '../../data/mockData';
 import './layout.css';
@@ -7,12 +7,23 @@ import './layout.css';
 const Header = ({ isSidebarOpen, onToggleSidebar }) => {
   const [now, setNow] = useState(new Date());
   const [showNotifications, setShowNotifications] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const tick = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(tick);
   }, []);
+
+  // Theme Toggler Effect
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isDarkMode) {
+      root.removeAttribute('data-theme');
+    } else {
+      root.setAttribute('data-theme', 'light');
+    }
+  }, [isDarkMode]);
 
   const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
@@ -45,6 +56,16 @@ const Header = ({ isSidebarOpen, onToggleSidebar }) => {
       </div>
 
       <div className="header-right">
+        {/* Theme Toggle */}
+        <button 
+          className="icon-button"
+          onClick={() => setIsDarkMode(!isDarkMode)}
+          title="Toggle Theme"
+          style={{ marginRight: '8px' }}
+        >
+          {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
+
         <div className="notification-wrapper">
           <button
             id="notification-btn"

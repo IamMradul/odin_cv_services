@@ -44,6 +44,7 @@ export const CameraCard = ({ camera, onExpand }) => {
               ref={canvasRef}
               style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
             />
+            <div className="cyber-scanline"></div>
             {/* Keeping DetectionOverlay for static detections if any, though drawOverlays handles it for canvas */}
             {priority && (
               <div className="priority-overlay">

@@ -12,11 +12,11 @@ const STATE_LABELS = {
   failed:     'Search Failed',
 };
 
-export const OsintStatus = ({ personId }) => {
+export const OsintStatus = ({ person }) => {
   const [state, setState] = useState('idle');
 
   const triggerSearch = async () => {
-    await faceService.triggerOsint(personId);
+    await faceService.triggerOsint(person.id);
     setState('queued');
   };
 
@@ -24,15 +24,15 @@ export const OsintStatus = ({ personId }) => {
   useEffect(() => {
     if (state === 'idle' || state === 'ready' || state === 'failed') return;
     const interval = setInterval(() => {
-      const s = faceService.getOsintState(personId);
+      const s = faceService.getOsintState(person.id);
       setState(s);
     }, 500);
     return () => clearInterval(interval);
-  }, [state, personId]);
+  }, [state, person.id]);
 
   useEffect(() => {
     setState('idle');
-  }, [personId]);
+  }, [person.id]);
 
   const inProgress = ['queued', 'processing', 'collecting'].includes(state);
   const progress = state === 'queued' ? 20 : state === 'processing' ? 55 : state === 'collecting' ? 80 : 0;
@@ -72,24 +72,14 @@ export const OsintStatus = ({ personId }) => {
 
       {state === 'ready' && (
         <div className="osint-results">
-          <div className="osint-result-item">
-            <span>Social Media Match</span>
-            <span className="text-success">3 Found</span>
-          </div>
-          <div className="osint-result-item">
-            <span>Known Aliases</span>
-            <span>2 Found</span>
-          </div>
-          <div className="osint-result-item">
-            <span>Risk Score</span>
-            <span className="text-critical">High (84/100)</span>
-          </div>
-          <div className="osint-result-item">
-            <span>Public Records</span>
-            <span>5 Matches</span>
-          </div>
+          <p className="osint-description" style={{ marginBottom: 10 }}>Extracted ID Document Found:</p>
+          {person.osintImageUrl && (
+            <div style={{ borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)' }}>
+              <img src={person.osintImageUrl} alt="OSINT ID Document" style={{ width: '100%', display: 'block' }} />
+            </div>
+          )}
           <button className="btn btn-secondary" style={{ width: '100%', marginTop: 'var(--space-3)', justifyContent: 'center' }}>
-            <Globe size={14} /> View Full OSINT Report
+            <Globe size={14} /> Download Full OSINT Dossier
           </button>
         </div>
       )}

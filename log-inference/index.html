@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Odin-CV | Log Inference</title>
+    <style>
+        :root {
+            --bg-color: #0f111a;
+            --surface-color: rgba(25, 28, 41, 0.7);
+            --surface-border: rgba(255, 255, 255, 0.08);
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-color: #10b981;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15) 0%, transparent 50%);
+            background-attachment: fixed;
+            color: var(--text-primary);
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            width: 100%;
+            padding: 24px 0;
+            text-align: center;
+            border-bottom: 1px solid var(--surface-border);
+            background: rgba(15, 17, 26, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .chat-container {
+            background: var(--surface-color);
+            border: 1px solid var(--surface-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(16px);
+        }
+
+        .messages {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 8px;
+            margin-bottom: 24px;
+        }
+
+        .messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: var(--surface-border);
+            border-radius: 8px;
+        }
+
+        .message {
+            padding: 16px;
+            border-radius: 12px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease-out;
+            word-wrap: break-word;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            align-self: flex-end;
+            max-width: 80%;
+            color: #e0e7ff;
+        }
+
+        .message.ai {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--surface-border);
+            align-self: flex-start;
+            max-width: 90%;
+        }
+
+        .message.ai pre {
+            background: #000;
+            padding: 12px;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+        
+        .message.ai code {
+            font-family: monospace;
+            color: #10b981;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 12px;
+            position: relative;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--surface-border);
+            color: var(--text-primary);
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 1rem;
+            outline: none;
+            transition: all 0.2s;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
+        }
+
+        button:disabled {
+            background: var(--surface-border);
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .chip {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--surface-border);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .chip:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--surface-border);
+            border-top-color: var(--primary-color);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .context-toggle {
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            cursor: pointer;
+            margin-top: 8px;
+            display: inline-block;
+        }
+        
+        .context-data {
+            display: none;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 8px;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Odin-CV Intelligence</h1>
+    </header>
+
+    <div class="container">
+        
+        <div class="chips">
+            <div class="chip" onclick="setInput('How many unidentified faces were detected overall?')">How many unidentified faces?</div>
+            <div class="chip" onclick="setInput('Were there any armed person alerts today?')">Any armed person alerts?</div>
+            <div class="chip" onclick="setInput('Which object stayed for the longest duration?')">Longest staying object?</div>
+            <div class="chip" onclick="setInput('Give me a breakdown of events by camera')">Events by camera</div>
+        </div>
+
+        <div class="chat-container">
+            <div class="messages" id="messages">
+                <div class="message ai">
+                    Hello! I'm the Odin-CV analytics assistant. I can help you analyze the surveillance logs. What would you like to know?
+                </div>
+            </div>
+
+            <div class="input-area">
+                <input type="text" id="queryInput" placeholder="Ask about the logs..." onkeypress="handleKeyPress(event)">
+                <button id="sendBtn" onclick="sendQuery()">Ask</button>
+            </div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div> Processing logs...
+            </div>
+        </div>
+    </div>
+
+    <!-- Include marked.js for markdown parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        function setInput(text) {
+            const input = document.getElementById('queryInput');
+            input.value = text;
+            input.focus();
+        }
+
+        function handleKeyPress(e) {
+            if (e.key === 'Enter') {
+                sendQuery();
+            }
+        }
+        
+        function toggleContext(id) {
+            const el = document.getElementById(id);
+            if (el.style.display === 'block') {
+                el.style.display = 'none';
+            } else {
+                el.style.display = 'block';
+            }
+        }
+
+        async function sendQuery() {
+            const input = document.getElementById('queryInput');
+            const question = input.value.trim();
+            if (!question) return;
+
+            const messagesDiv = document.getElementById('messages');
+            const sendBtn = document.getElementById('sendBtn');
+            const loading = document.getElementById('loading');
+
+            // Add user message
+            messagesDiv.innerHTML += `<div class="message user">${question}</div>`;
+            input.value = '';
+            
+            // UI state
+            input.disabled = true;
+            sendBtn.disabled = true;
+            loading.style.display = 'flex';
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+            try {
+                const response = await fetch('/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question })
+                });
+
+                const data = await response.json();
+                const contextId = 'ctx_' + Date.now();
+                
+                let aiResponseHtml = `<div class="message ai">
+                    ${marked.parse(data.answer)}
+                `;
+                
+                if (data.context_used) {
+                    aiResponseHtml += `
+                        <div class="context-toggle" onclick="toggleContext('${contextId}')">View Analytics Data Used</div>
+                        <div class="context-data" id="${contextId}">${data.context_used}</div>
+                    `;
+                }
+                
+                aiResponseHtml += `</div>`;
+                messagesDiv.innerHTML += aiResponseHtml;
+
+            } catch (err) {
+                messagesDiv.innerHTML += `<div class="message ai" style="color: #ef4444;">Error: Could not connect to the inference engine. Make sure the backend is running.</div>`;
+            }
+
+            // Reset UI
+            input.disabled = false;
+            sendBtn.disabled = false;
+            loading.style.display = 'none';
+            input.focus();
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+</html>

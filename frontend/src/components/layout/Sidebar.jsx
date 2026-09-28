@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Search, Bell, Users,
-  Video, FileText, Settings, Eye, Radio, X, Terminal
+  Video, FileText, Settings, Eye, Radio, X, Terminal, BrainCircuit
 } from 'lucide-react';
 import './layout.css';
 
@@ -13,6 +13,7 @@ const navItems = [
   { path: '/faces',   label: 'Face DB',          icon: Users },
   { path: '/footage', label: 'Footage',          icon: Video },
   { path: '/reports', label: 'Reports',          icon: FileText },
+  { path: '/intelligence', label: 'Intelligence',icon: BrainCircuit },
   { path: '/logs',    label: 'System Logs',      icon: Terminal },
   { path: '/settings',label: 'Settings',         icon: Settings },
 ];

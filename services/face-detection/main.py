@@ -53,12 +53,20 @@ async def lifespan(app: FastAPI):
     engine = ClassificationEngine(embedding_index, person_registry)
     
     print("Face Detection & Classification Service Started")
+    
+    # Ensure OSINT data is loaded into Redis and FAISS on boot
+    await seed_database()
+    
     yield
     print("Saving FAISS index before shutdown...")
     embedding_index.save(INDEX_PATH, ID_MAP_PATH)
     print("Face Detection Service Shutting Down")
 
+from fastapi.staticfiles import StaticFiles
+
 app = FastAPI(title="Face Classification Service", lifespan=lifespan)
+app.mount("/data", StaticFiles(directory="data"), name="data")
+app.mount("/osint_images", StaticFiles(directory="id_osint"), name="osint_images")
 
 app.add_middleware(
     CORSMiddleware,
@@ -111,33 +119,69 @@ async def detect_faces(frame: UploadFile = File(...)):
 
 @app.get("/faces")
 async def get_faces():
-    # Retrieve all known persons from the registry
-    # Assuming registry has a method to list all, or we construct a mock response for now
-    # Since person_registry is a Redis-backed PersonRegistry, we need to get all keys
-    keys = person_registry.redis.keys("person:*")
-    faces = []
-    for k in keys:
-        person_data = person_registry.redis.hgetall(k)
-        person_data = {k.decode('utf-8'): v.decode('utf-8') for k, v in person_data.items()}
-        faces.append({
-            "id": person_data.get("person_id", k.decode('utf-8').split(":")[1]),
-            "name": person_data.get("name", "Unknown"),
-            "status": person_data.get("category", "Unknown"),
-            "lastSeen": "Unknown",
-            "lastSeenDate": "Unknown",
-            "events": 0,
-            "tags": [],
-            "description": ""
-        })
-    return faces
+    try:
+        # Retrieve all known persons from the registry
+        keys = person_registry.r.smembers("persons:all")
+        faces = []
+        for k in keys:
+            person = person_registry.get(k)
+            if person:
+                sightings = person_registry.get_sightings(person.id, limit=1)
+                image_url = ""
+                if sightings and sightings[0].snapshot_path:
+                    path = sightings[0].snapshot_path.replace("\\", "/")
+                    if path.startswith("data/"):
+                        image_url = f"http://localhost:8003/{path}"
+                    else:
+                        image_url = f"http://localhost:8003/data/{path}"
+                else:
+                    image_url = f"http://localhost:8003/data/snapshots/{person.id}.jpg"
+
+                faces.append({
+                    "id": person.id,
+                    "name": person.name if person.name else person.id,
+                    "contact": person.contact,
+                    "status": person.status,
+                    "lastSeen": person.last_seen,
+                    "events": person.sighting_count,
+                    "tags": [],
+                    "description": person.notes if person.notes else "",
+                    "imageUrl": image_url,
+                    "osintImageUrl": f"http://localhost:8003/osint_images/{person.id}.jpeg"
+                })
+        return faces
+    except Exception as e:
+        import traceback
+        return {"error": str(e), "traceback": traceback.format_exc()}
 
 @app.get("/faces/{person_id}")
 async def get_face(person_id: str):
-    person_data = person_registry.redis.hgetall(f"person:{person_id}")
-    if not person_data:
+    person = person_registry.get(person_id)
+    if not person:
         return {"error": "Not found"}
-    person_data = {k.decode('utf-8'): v.decode('utf-8') for k, v in person_data.items()}
-    return person_data
+        
+    sightings = person_registry.get_sightings(person.id, limit=1)
+    image_url = ""
+    if sightings and sightings[0].snapshot_path:
+        path = sightings[0].snapshot_path.replace("\\", "/")
+        if path.startswith("data/"):
+            image_url = f"http://localhost:8003/{path}"
+        else:
+            image_url = f"http://localhost:8003/data/{path}"
+    else:
+        image_url = f"http://localhost:8003/data/{person.status}/{person.id}.jpg"
+
+    return {
+        "id": person.id,
+        "name": person.name if person.name else person.id,
+        "contact": person.contact,
+        "status": person.status,
+        "lastSeen": person.last_seen,
+        "events": person.sighting_count,
+        "description": person.notes if person.notes else "",
+        "imageUrl": image_url,
+        "osintImageUrl": f"http://localhost:8003/osint_images/{person.id}.jpeg"
+    }
 
 @app.post("/faces")
 async def add_face(data: dict):
@@ -161,5 +205,71 @@ async def get_osint(person_id: str):
     state = osint_states.get(person_id, "idle")
     return {"state": state}
 
+@app.post("/seed")
+async def seed_database():
+    import os, cv2, numpy as np
+    osint_dir = "id_osint"
+    if not os.path.exists(osint_dir):
+        return {"status": "error", "message": f"Directory {osint_dir} not found"}
+
+    seeded_count = 0
+    statuses = ["Employee", "Cleared", "Watchlist", "Target"]
+    
+    for idx, filename in enumerate(os.listdir(osint_dir)):
+        if not filename.lower().endswith(('.png', '.jpg', '.jpeg')):
+            continue
+            
+        filepath = os.path.join(osint_dir, filename)
+        name = os.path.splitext(filename)[0]
+        
+        img = cv2.imread(filepath)
+        if img is None: continue
+            
+        faces = face_detector.detect(img)
+        if not faces: continue
+            
+        f = faces[0]
+        norm = np.linalg.norm(f.embedding)
+        if norm > 0: f.embedding = f.embedding / norm
+            
+        person_id = name
+        status = statuses[idx % len(statuses)]
+        
+        # Add to in-memory FAISS
+        embedding_index.add(person_id, f.embedding)
+        
+        # Register in Redis
+        person_registry.r.delete(f"person:{person_id}")
+        person_registry.r.srem("persons:all", person_id)
+        for s in statuses + ["safe", "threat", "unidentified"]:
+            person_registry.r.srem(f"persons:by_status:{s}", person_id)
+            
+        mock_osint_data = {
+            "aks": {"name": "AKSHAT SINHA", "contact": "7765859270", "notes": "B.P. KUTTIR, S.K. PURI, BORING ROAD, PATNA, PATNA"},
+            "maya": {"name": "MAYANK KUMAR", "contact": "8709679393", "notes": "IC-77, NTS BARKAKANA GHUTUWA, PS- GHUTUWA, CHAINGARA, PO. BARKAKANA, RAMGARH, JHARKHAND-829103, RAMGARH CANTT"},
+            "mg": {"name": "MRADUL GUPTA", "contact": "9305343135", "notes": "THOK STATION ROAD, MISHRIKH, SITAPUR, UTTAR PRADESH-261401, MISRIKH NEEMSAR"},
+            "sid": {"name": "SIDDHARTH PAUL", "contact": "9748545110", "notes": "SANKRAIL, HAORA, WEST BENGAL-711313, HOWRAH"}
+        }
+        
+        osint_info = mock_osint_data.get(person_id, {"name": person_id.capitalize(), "contact": "N/A", "notes": ""})
+        person_registry.create(person_id, status=status, name=osint_info["name"], contact=osint_info["contact"], notes=osint_info["notes"])
+        
+        snapshot_path = f"data/snapshots/{person_id}.jpg"
+        x1, y1, x2, y2 = [int(v) for v in f.bbox]
+        h, w = img.shape[:2]
+        mx1, my1 = max(0, x1-20), max(0, y1-20)
+        mx2, my2 = min(w, x2+20), min(h, y2+20)
+        cropped = img[my1:my2, mx1:mx2]
+        if cropped.size != 0:
+            os.makedirs(os.path.dirname(snapshot_path), exist_ok=True)
+            cv2.imwrite(snapshot_path, cropped)
+            
+        person_registry.log_sighting(person_id, "seed", 1.0, snapshot_path)
+        seeded_count += 1
+
+    embedding_index.save(INDEX_PATH, ID_MAP_PATH)
+    return {"status": "ok", "seeded": seeded_count}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8003, reload=True)
+# Trigger reload

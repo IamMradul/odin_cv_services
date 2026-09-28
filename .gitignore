@@ -29,6 +29,6 @@ startup.bat
 
 #data from face detection and alert logging
 services/alert-logging/data
-services/face-detection/data
+services/face-detection/data/unidentified
 
 Weapon-Detection-System/
